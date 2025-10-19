@@ -1,39 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
-import { aircraftRegistry, getAircraftByRegistration } from '../data/aircraftRegistry';
-import { calculateMassBalance } from '../services/massBalanceCalculator';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { aircraftRegistry } from '../data/aircraftRegistry';
+import { AircraftConfig } from '../models/Aircraft';
 
-export const HomeScreen: React.FC = () => {
-  const handleSelectAircraft = (registration: string) => {
-    console.log('Selected aircraft:', registration);
+interface HomeScreenProps {
+  onSelectAircraft: (aircraft: AircraftConfig) => void;
+}
 
-    // Run test calculation
-    const aircraft = getAircraftByRegistration(registration);
-    if (aircraft) {
-      // Test scenario: 2 people (75 kg each), 50 liters fuel
-      const testWeights: Record<string, number> = {};
-
-      if (aircraft.modelType === 'tecnam-2002jf') {
-        testWeights['pilot'] = 75;
-        testWeights['copilot'] = 75;
-        testWeights['baggage'] = 10;
-      } else {
-        testWeights['frontSeats'] = 150; // 2 people
-        testWeights['rearSeats'] = 0;
-        testWeights['baggageStandard'] = 10;
-      }
-
-      const fuelWeight = 50 * 0.72; // 50 liters * 0.72 kg/liter
-      const result = calculateMassBalance(aircraft, testWeights, fuelWeight);
-
-      console.log('=== TEST CALCULATION ===');
-      console.log('Aircraft:', registration);
-      console.log('Total Weight:', result.totalWeight.toFixed(1), 'kg');
-      console.log('CG Position:', result.cgPosition.toFixed(2), 'inches');
-      console.log('Within Envelope:', result.isWithinEnvelope);
-      console.log('Exceeds Max Weight:', result.exceedsMaxWeight);
-      console.log('=======================');
-    }
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft }) => {
+  const handleSelectAircraft = (aircraft: AircraftConfig) => {
+    onSelectAircraft(aircraft);
   };
 
   return (
@@ -47,7 +23,7 @@ export const HomeScreen: React.FC = () => {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.aircraftCard}
-            onPress={() => handleSelectAircraft(item.registration)}
+            onPress={() => handleSelectAircraft(item)}
           >
             <Text style={styles.registration}>{item.registration}</Text>
             <Text style={styles.model}>{item.model}</Text>
