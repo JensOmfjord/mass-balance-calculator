@@ -18,6 +18,10 @@ export const lbsToKg = (lbs: number): number => lbs / 2.20462;
 export const litersToGallons = (liters: number): number => liters * 0.264172;
 export const gallonsToLiters = (gallons: number): number => gallons / 0.264172;
 
+// Distance conversions
+export const inchesToMeters = (inches: number): number => inches * 0.0254;
+export const metersToInches = (meters: number): number => meters / 0.0254;
+
 // Fuel weight conversions (Avgas ~0.72 kg/liter, 6 lbs/gallon)
 // Legacy functions - kept for backward compatibility
 export const litersToKg = (liters: number): number => liters * FUEL_DENSITY_AVGAS_KG_PER_LITER;

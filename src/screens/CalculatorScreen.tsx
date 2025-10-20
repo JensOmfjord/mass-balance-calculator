@@ -15,6 +15,7 @@ import { AircraftConfig } from '../models/Aircraft';
 import { calculateMassBalance } from '../services/massBalanceCalculator';
 import { MassBalanceResult } from '../models/MassBalanceResult';
 import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
+import { inchesToMeters } from '../utils/units';
 
 interface CalculatorScreenProps {
   aircraft: AircraftConfig;
@@ -125,6 +126,18 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
         </TouchableOpacity>
       </View>
 
+      {/* CG Envelope Chart - Always visible at top */}
+      {result && (
+        <View style={styles.chartContainerTop}>
+          <CGEnvelopeChart
+            aircraft={aircraft}
+            currentWeight={result.totalWeight}
+            currentCG={result.cgPosition}
+            isWithinEnvelope={result.isWithinEnvelope}
+          />
+        </View>
+      )}
+
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
         {/* Station Inputs */}
         <View style={styles.section}>
@@ -214,7 +227,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
 
               <View style={styles.resultRow}>
                 <Text style={styles.resultLabel}>CG Position:</Text>
-                <Text style={styles.resultValue}>{result.cgPosition.toFixed(2)} in</Text>
+                <Text style={styles.resultValue}>{inchesToMeters(result.cgPosition).toFixed(3)} m</Text>
               </View>
 
               <View style={styles.resultRow}>
@@ -251,16 +264,6 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                   </Text>
                 </View>
               )}
-            </View>
-
-            {/* CG Envelope Chart */}
-            <View style={styles.chartContainer}>
-              <CGEnvelopeChart
-                aircraft={aircraft}
-                currentWeight={result.totalWeight}
-                currentCG={result.cgPosition}
-                isWithinEnvelope={result.isWithinEnvelope}
-              />
             </View>
           </View>
         )}
@@ -521,8 +524,11 @@ const styles = StyleSheet.create({
     color: '#E65100',
     fontWeight: '600',
   },
-  chartContainer: {
-    marginTop: 20,
+  chartContainerTop: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 10,
   },
   bottomPadding: {
     height: 40,

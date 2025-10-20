@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Line, Polygon, Circle, Text as SvgText } from 'react-native-svg';
 import { AircraftConfig } from '../models/Aircraft';
+import { inchesToMeters } from '../utils/units';
 
 interface CGEnvelopeChartProps {
   aircraft: AircraftConfig;
@@ -23,14 +24,17 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   const plotWidth = chartWidth - padding * 2;
   const plotHeight = chartHeight - padding * 2;
 
-  // Find min/max values for scaling
+  // Find min/max values for scaling (convert CG to meters)
   const weights = aircraft.envelope.map(point => point.weight);
-  const cgValues = aircraft.envelope.flatMap(point => [point.cgMin, point.cgMax]);
+  const cgValues = aircraft.envelope.flatMap(point => [
+    inchesToMeters(point.cgMin),
+    inchesToMeters(point.cgMax)
+  ]);
 
   const minWeight = Math.min(...weights);
   const maxWeight = Math.max(...weights, aircraft.maxTakeoffWeight);
-  const minCG = Math.min(...cgValues) - 2;
-  const maxCG = Math.max(...cgValues) + 2;
+  const minCG = Math.min(...cgValues) - 0.05; // 5cm padding
+  const maxCG = Math.max(...cgValues) + 0.05;
 
   // Scale functions
   const scaleX = (cg: number) => {
@@ -41,25 +45,25 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
     return chartHeight - padding - ((weight - minWeight) / (maxWeight - minWeight)) * plotHeight;
   };
 
-  // Create envelope polygon points
+  // Create envelope polygon points (convert CG to meters)
   const envelopePoints: string[] = [];
 
   // Top edge (forward to aft at max weight)
   for (let i = 0; i < aircraft.envelope.length; i++) {
     const point = aircraft.envelope[i];
-    envelopePoints.push(`${scaleX(point.cgMax)},${scaleY(point.weight)}`);
+    envelopePoints.push(`${scaleX(inchesToMeters(point.cgMax))},${scaleY(point.weight)}`);
   }
 
   // Bottom edge (aft to forward at min weight)
   for (let i = aircraft.envelope.length - 1; i >= 0; i--) {
     const point = aircraft.envelope[i];
-    envelopePoints.push(`${scaleX(point.cgMin)},${scaleY(point.weight)}`);
+    envelopePoints.push(`${scaleX(inchesToMeters(point.cgMin))},${scaleY(point.weight)}`);
   }
 
   const envelopePolygon = envelopePoints.join(' ');
 
-  // Current position
-  const currentX = scaleX(currentCG);
+  // Current position (convert CG to meters)
+  const currentX = scaleX(inchesToMeters(currentCG));
   const currentY = scaleY(currentWeight);
 
   // Grid lines (4 horizontal, 4 vertical)
@@ -183,7 +187,7 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
           fontWeight="600"
           textAnchor="middle"
         >
-          CG Position (inches)
+          CG Position (m)
         </SvgText>
         <SvgText
           x={15}
