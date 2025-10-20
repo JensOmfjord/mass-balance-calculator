@@ -127,16 +127,14 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
       </View>
 
       {/* CG Envelope Chart - Always visible at top */}
-      {result && (
-        <View style={styles.chartContainerTop}>
-          <CGEnvelopeChart
-            aircraft={aircraft}
-            currentWeight={result.totalWeight}
-            currentCG={result.cgPosition}
-            isWithinEnvelope={result.isWithinEnvelope}
-          />
-        </View>
-      )}
+      <View style={styles.chartContainerTop}>
+        <CGEnvelopeChart
+          aircraft={aircraft}
+          currentWeight={result?.totalWeight || 0}
+          currentCG={result?.cgPosition || 0}
+          isWithinEnvelope={result?.isWithinEnvelope || true}
+        />
+      </View>
 
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
         {/* Station Inputs */}

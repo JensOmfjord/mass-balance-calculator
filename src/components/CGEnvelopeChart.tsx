@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Line, Polygon, Circle, Text as SvgText } from 'react-native-svg';
 import { AircraftConfig } from '../models/Aircraft';
 import { inchesToMeters } from '../utils/units';
@@ -17,12 +17,17 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   currentCG,
   isWithinEnvelope,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   // Chart dimensions
   const chartWidth = 320;
   const chartHeight = 240;
-  const padding = 40;
-  const plotWidth = chartWidth - padding * 2;
-  const plotHeight = chartHeight - padding * 2;
+  const paddingLeft = 45; // More space for weight labels
+  const paddingRight = 20;
+  const paddingTop = 20;
+  const paddingBottom = 30;
+  const plotWidth = chartWidth - paddingLeft - paddingRight;
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
 
   // Find min/max values for scaling (convert CG to meters)
   const weights = aircraft.envelope.map(point => point.weight);
@@ -31,18 +36,19 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
     inchesToMeters(point.cgMax)
   ]);
 
-  const minWeight = Math.min(...weights);
+  // Use empty weight as minimum to show full operational range
+  const minWeight = aircraft.emptyWeight;
   const maxWeight = Math.max(...weights, aircraft.maxTakeoffWeight);
   const minCG = Math.min(...cgValues) - 0.05; // 5cm padding
   const maxCG = Math.max(...cgValues) + 0.05;
 
   // Scale functions
   const scaleX = (cg: number) => {
-    return padding + ((cg - minCG) / (maxCG - minCG)) * plotWidth;
+    return paddingLeft + ((cg - minCG) / (maxCG - minCG)) * plotWidth;
   };
 
   const scaleY = (weight: number) => {
-    return chartHeight - padding - ((weight - minWeight) / (maxWeight - minWeight)) * plotHeight;
+    return chartHeight - paddingBottom - ((weight - minWeight) / (maxWeight - minWeight)) * plotHeight;
   };
 
   // Create envelope polygon points (convert CG to meters)
@@ -78,9 +84,9 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
       <Line
         key={`v-${i}`}
         x1={x}
-        y1={padding}
+        y1={paddingTop}
         x2={x}
-        y2={chartHeight - padding}
+        y2={chartHeight - paddingBottom}
         stroke="#E0E0E0"
         strokeWidth="1"
       />
@@ -89,12 +95,12 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
       <SvgText
         key={`v-label-${i}`}
         x={x}
-        y={chartHeight - padding + 15}
+        y={chartHeight - paddingBottom + 15}
         fill="#666"
         fontSize="10"
         textAnchor="middle"
       >
-        {cg.toFixed(1)}
+        {cg.toFixed(2)}
       </SvgText>
     );
   }
@@ -106,9 +112,9 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
     gridLines.push(
       <Line
         key={`h-${i}`}
-        x1={padding}
+        x1={paddingLeft}
         y1={y}
-        x2={chartWidth - padding}
+        x2={chartWidth - paddingRight}
         y2={y}
         stroke="#E0E0E0"
         strokeWidth="1"
@@ -117,7 +123,7 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
     gridLines.push(
       <SvgText
         key={`h-label-${i}`}
-        x={padding - 10}
+        x={paddingLeft - 5}
         y={y + 4}
         fill="#666"
         fontSize="10"
@@ -130,8 +136,18 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>CG Envelope</Text>
-      <Svg width={chartWidth} height={chartHeight}>
+      <TouchableOpacity
+        style={styles.header}
+        onPress={() => setIsCollapsed(!isCollapsed)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.title}>CG Envelope</Text>
+        <Text style={styles.collapseIcon}>{isCollapsed ? '▼' : '▲'}</Text>
+      </TouchableOpacity>
+
+      {!isCollapsed && (
+        <>
+          <Svg width={chartWidth} height={chartHeight}>
         {/* Grid lines */}
         {gridLines}
 
@@ -149,17 +165,17 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
             {/* Cross lines to help see position */}
             <Line
               x1={currentX}
-              y1={padding}
+              y1={paddingTop}
               x2={currentX}
-              y2={chartHeight - padding}
+              y2={chartHeight - paddingBottom}
               stroke={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
               strokeWidth="1"
               strokeDasharray="4,4"
             />
             <Line
-              x1={padding}
+              x1={paddingLeft}
               y1={currentY}
-              x2={chartWidth - padding}
+              x2={chartWidth - paddingRight}
               y2={currentY}
               stroke={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
               strokeWidth="1"
@@ -190,29 +206,31 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
           CG Position (m)
         </SvgText>
         <SvgText
-          x={15}
+          x={8}
           y={chartHeight / 2}
           fill="#333"
           fontSize="12"
           fontWeight="600"
           textAnchor="middle"
-          transform={`rotate(-90, 15, ${chartHeight / 2})`}
+          transform={`rotate(-90, 8, ${chartHeight / 2})`}
         >
           Weight (kg)
         </SvgText>
       </Svg>
 
-      {currentWeight > 0 && (
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
-            <Text style={styles.legendText}>Safe Envelope</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: isWithinEnvelope ? '#2196F3' : '#FF3B30' }]} />
-            <Text style={styles.legendText}>Current Position</Text>
-          </View>
-        </View>
+          {currentWeight > 0 && (
+            <View style={styles.legend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
+                <Text style={styles.legendText}>Safe Envelope</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: isWithinEnvelope ? '#2196F3' : '#FF3B30' }]} />
+                <Text style={styles.legendText}>Current Position</Text>
+              </View>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -221,24 +239,33 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingTop: 6,
+    paddingBottom: 4,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingVertical: 4,
+    marginBottom: 2,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 15,
+  },
+  collapseIcon: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
   },
   legend: {
     flexDirection: 'row',
-    marginTop: 15,
+    marginTop: 8,
+    marginBottom: 4,
     gap: 20,
   },
   legendItem: {

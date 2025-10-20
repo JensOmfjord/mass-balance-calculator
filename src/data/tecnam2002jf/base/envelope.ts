@@ -5,6 +5,7 @@ import { CGEnvelope } from '../../../models/CGEnvelope';
 // Forward limit: 26% CMA (1693mm = 66.65 inches)
 // Aft limit: 32.5% CMA (1782mm = 70.16 inches)
 export const tecnamEnvelope: CGEnvelope = [
+  { weight: 370, cgMin: 66.65, cgMax: 70.16 }, // Empty weight baseline
   { weight: 580, cgMin: 66.65, cgMax: 70.16 },
   { weight: 600, cgMin: 66.65, cgMax: 70.16 },
   { weight: 620, cgMin: 66.65, cgMax: 70.16 },
