@@ -39,7 +39,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
 
   // Calculate whenever inputs change
   useEffect(() => {
-    const fuelWeight = fuelVolume * 0.72; // Convert liters to kg
+    const fuelWeight = fuelVolume * aircraft.fuelDensity; // Convert liters to kg using aircraft-specific density
     const hasValues = Object.values(stationWeights).some(w => w > 0) || fuelVolume > 0;
 
     if (hasValues) {
@@ -171,7 +171,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
             <View style={styles.labelContainer}>
               <Text style={styles.inputLabelText}>Fuel</Text>
               <Text style={styles.inputLabelSubtext}>
-                Max: {aircraft.fuelCapacity} L ({(aircraft.fuelCapacity * 0.72).toFixed(1)} kg)
+                Max: {aircraft.fuelCapacity} L ({(aircraft.fuelCapacity * aircraft.fuelDensity).toFixed(1)} kg)
               </Text>
             </View>
 

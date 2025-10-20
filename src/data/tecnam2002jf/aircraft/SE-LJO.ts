@@ -1,6 +1,7 @@
 import { AircraftConfig } from '../../../models/Aircraft';
 import { tecnamStations } from '../base/stations';
 import { tecnamEnvelope } from '../base/envelope';
+import { FUEL_DENSITY_AVGAS_KG_PER_LITER } from '../../../utils/constants';
 
 export const SE_LJO: AircraftConfig = {
   registration: 'SE-LJO',
@@ -18,5 +19,7 @@ export const SE_LJO: AircraftConfig = {
   maxTakeoffWeight: 620, // kg
   fuelCapacity: 100, // liters (99 liters usable)
   fuelArm: 60.24, // inches (1.53m from datum)
+  fuelType: 'avgas',
+  fuelDensity: FUEL_DENSITY_AVGAS_KG_PER_LITER,
   defaultUnit: 'kg',
 };

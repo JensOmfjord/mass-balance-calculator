@@ -1,6 +1,7 @@
 import { AircraftConfig } from '../../../models/Aircraft';
 import { da40Stations } from '../base/stations';
 import { da40Envelope } from '../base/envelope';
+import { FUEL_DENSITY_JETA_KG_PER_LITER } from '../../../utils/constants';
 
 export const LN_FTM: AircraftConfig = {
   registration: 'LN-FTM',
@@ -18,5 +19,7 @@ export const LN_FTM: AircraftConfig = {
   maxTakeoffWeight: 1310, // kg (MTOW)
   fuelCapacity: 155.2, // liters (147.6 liters usable)
   fuelArm: 103.54, // inches (2.63m from datum)
+  fuelType: 'jet-a',
+  fuelDensity: FUEL_DENSITY_JETA_KG_PER_LITER,
   defaultUnit: 'kg',
 };

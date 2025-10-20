@@ -2,6 +2,7 @@ import { Station } from './Station';
 import { CGEnvelope } from './CGEnvelope';
 
 export type AircraftModelType = 'tecnam-2002jf' | 'da40-ng';
+export type FuelType = 'avgas' | 'jet-a';
 
 export interface AircraftConfig {
   registration: string; // Tail number (e.g., 'LN-DKH')
@@ -18,6 +19,8 @@ export interface AircraftConfig {
   maxTakeoffWeight: number; // in kg
   fuelCapacity: number; // in liters
   fuelArm: number; // Fuel tank arm in inches
+  fuelType: FuelType; // Type of fuel (avgas or jet-a)
+  fuelDensity: number; // Fuel density in kg/liter
   defaultUnit: 'kg' | 'lbs';
 
   // Display metadata
