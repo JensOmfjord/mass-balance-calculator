@@ -14,6 +14,7 @@ import Slider from '@react-native-community/slider';
 import { AircraftConfig } from '../models/Aircraft';
 import { calculateMassBalance } from '../services/massBalanceCalculator';
 import { MassBalanceResult } from '../models/MassBalanceResult';
+import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
 
 interface CalculatorScreenProps {
   aircraft: AircraftConfig;
@@ -250,6 +251,16 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                   </Text>
                 </View>
               )}
+            </View>
+
+            {/* CG Envelope Chart */}
+            <View style={styles.chartContainer}>
+              <CGEnvelopeChart
+                aircraft={aircraft}
+                currentWeight={result.totalWeight}
+                currentCG={result.cgPosition}
+                isWithinEnvelope={result.isWithinEnvelope}
+              />
             </View>
           </View>
         )}
@@ -509,6 +520,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#E65100',
     fontWeight: '600',
+  },
+  chartContainer: {
+    marginTop: 20,
   },
   bottomPadding: {
     height: 40,

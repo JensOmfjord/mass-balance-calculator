@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "mass-and-balance-calculator",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -18,7 +18,8 @@
     "react": "19.1.0",
     "react-native": "0.81.4",
     "react-native-safe-area-context": "^5.6.1",
-    "react-native-screens": "^4.17.1"
+    "react-native-screens": "^4.17.1",
+    "react-native-svg": "15.12.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
