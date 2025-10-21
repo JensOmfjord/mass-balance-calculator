@@ -9,6 +9,9 @@ interface CGEnvelopeChartProps {
   currentWeight: number;
   currentCG: number;
   isWithinEnvelope: boolean;
+  landingWeight?: number;
+  landingCG?: number;
+  landingIsWithinEnvelope?: boolean;
 }
 
 export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
@@ -16,16 +19,19 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   currentWeight,
   currentCG,
   isWithinEnvelope,
+  landingWeight,
+  landingCG,
+  landingIsWithinEnvelope,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Chart dimensions
-  const chartWidth = 320;
+  const chartWidth = 350;
   const chartHeight = 240;
   const paddingLeft = 45; // More space for weight labels
-  const paddingRight = 20;
+  const paddingRight = 10;
   const paddingTop = 20;
-  const paddingBottom = 30;
+  const paddingBottom = 35;
   const plotWidth = chartWidth - paddingLeft - paddingRight;
   const plotHeight = chartHeight - paddingTop - paddingBottom;
 
@@ -36,9 +42,14 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
     inchesToMeters(point.cgMax)
   ]);
 
-  // Use empty weight as minimum to show full operational range
-  const minWeight = aircraft.emptyWeight;
-  const maxWeight = Math.max(...weights, aircraft.maxTakeoffWeight);
+  // Add padding above and below the envelope limits
+  const envelopeMinWeight = Math.min(...weights);
+  const envelopeMaxWeight = Math.max(...weights);
+  const weightRange = envelopeMaxWeight - envelopeMinWeight;
+  const weightPadding = Math.max(weightRange * 0.1, 20); // 10% padding or 20kg minimum
+
+  const minWeight = envelopeMinWeight - weightPadding;
+  const maxWeight = envelopeMaxWeight + weightPadding;
   const minCG = Math.min(...cgValues) - 0.05; // 5cm padding
   const maxCG = Math.max(...cgValues) + 0.05;
 
@@ -72,6 +83,10 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   const currentX = scaleX(inchesToMeters(currentCG));
   const currentY = scaleY(currentWeight);
 
+  // Landing position (convert CG to meters)
+  const landingX = landingCG ? scaleX(inchesToMeters(landingCG)) : null;
+  const landingY = landingWeight ? scaleY(landingWeight) : null;
+
   // Grid lines (4 horizontal, 4 vertical)
   const gridLines: JSX.Element[] = [];
   const numGridLines = 4;
@@ -95,7 +110,7 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
       <SvgText
         key={`v-label-${i}`}
         x={x}
-        y={chartHeight - paddingBottom + 15}
+        y={chartHeight - paddingBottom + 18}
         fill="#666"
         fontSize="10"
         textAnchor="middle"
@@ -159,7 +174,32 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
           strokeWidth="2"
         />
 
-        {/* Current position marker */}
+        {/* Max Landing Weight line */}
+        {aircraft.maxLandingWeight && aircraft.maxLandingWeight < aircraft.maxTakeoffWeight && (
+          <>
+            <Line
+              x1={paddingLeft}
+              y1={scaleY(aircraft.maxLandingWeight)}
+              x2={chartWidth - paddingRight}
+              y2={scaleY(aircraft.maxLandingWeight)}
+              stroke="#FF9500"
+              strokeWidth="2"
+              strokeDasharray="8,4"
+            />
+            <SvgText
+              x={paddingLeft + 5}
+              y={scaleY(aircraft.maxLandingWeight) - 5}
+              fill="#FF9500"
+              fontSize="10"
+              fontWeight="600"
+              textAnchor="start"
+            >
+              Max Landing: {aircraft.maxLandingWeight} kg
+            </SvgText>
+          </>
+        )}
+
+        {/* Takeoff position marker */}
         {currentWeight > 0 && (
           <>
             {/* Cross lines to help see position */}
@@ -182,12 +222,59 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
               strokeDasharray="4,4"
             />
 
-            {/* Current position dot */}
+            {/* Takeoff position dot */}
             <Circle
               cx={currentX}
               cy={currentY}
               r="6"
               fill={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
+              stroke="#FFF"
+              strokeWidth="2"
+            />
+          </>
+        )}
+
+        {/* Landing position marker */}
+        {landingX !== null && landingY !== null && landingWeight !== undefined && (
+          <>
+            {/* Cross lines for landing position */}
+            <Line
+              x1={landingX}
+              y1={paddingTop}
+              x2={landingX}
+              y2={chartHeight - paddingBottom}
+              stroke={
+                landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                  ? '#34C759'
+                  : '#FF9500'
+              }
+              strokeWidth="1"
+              strokeDasharray="2,2"
+            />
+            <Line
+              x1={paddingLeft}
+              y1={landingY}
+              x2={chartWidth - paddingRight}
+              y2={landingY}
+              stroke={
+                landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                  ? '#34C759'
+                  : '#FF9500'
+              }
+              strokeWidth="1"
+              strokeDasharray="2,2"
+            />
+
+            {/* Landing position dot */}
+            <Circle
+              cx={landingX}
+              cy={landingY}
+              r="6"
+              fill={
+                landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                  ? '#34C759'
+                  : '#FF9500'
+              }
               stroke="#FFF"
               strokeWidth="2"
             />
@@ -218,18 +305,34 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
         </SvgText>
       </Svg>
 
-          {currentWeight > 0 && (
-            <View style={styles.legend}>
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
+              <Text style={styles.legendText}>Safe Envelope</Text>
+            </View>
+            {aircraft.maxLandingWeight && aircraft.maxLandingWeight < aircraft.maxTakeoffWeight && (
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
-                <Text style={styles.legendText}>Safe Envelope</Text>
+                <View style={[styles.legendLine, { backgroundColor: '#FF9500' }]} />
+                <Text style={styles.legendText}>Max Landing</Text>
               </View>
+            )}
+            {currentWeight > 0 && (
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: isWithinEnvelope ? '#2196F3' : '#FF3B30' }]} />
-                <Text style={styles.legendText}>Current Position</Text>
+                <Text style={styles.legendText}>Takeoff</Text>
               </View>
-            </View>
-          )}
+            )}
+            {landingX !== null && landingY !== null && landingWeight !== undefined && (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, {
+                  backgroundColor: landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                    ? '#34C759'
+                    : '#FF9500'
+                }]} />
+                <Text style={styles.legendText}>Landing</Text>
+              </View>
+            )}
+          </View>
         </>
       )}
     </View>
@@ -277,6 +380,11 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+  legendLine: {
+    width: 16,
+    height: 3,
+    borderRadius: 1.5,
   },
   legendText: {
     fontSize: 12,

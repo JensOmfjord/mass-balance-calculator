@@ -25,9 +25,12 @@ interface CalculatorScreenProps {
 export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, onBack }) => {
   const [stationWeights, setStationWeights] = useState<Record<string, number>>({});
   const [fuelVolume, setFuelVolume] = useState<number>(0);
+  const [fuelBurn, setFuelBurn] = useState<number>(0);
   const [result, setResult] = useState<MassBalanceResult | null>(null);
+  const [landingResult, setLandingResult] = useState<MassBalanceResult | null>(null);
   const [editingStation, setEditingStation] = useState<string | null>(null);
   const [editingFuel, setEditingFuel] = useState(false);
+  const [editingFuelBurn, setEditingFuelBurn] = useState(false);
   const [tempValue, setTempValue] = useState<string>('');
 
   // Initialize station weights to 0
@@ -45,12 +48,23 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
     const hasValues = Object.values(stationWeights).some(w => w > 0) || fuelVolume > 0;
 
     if (hasValues) {
+      // Takeoff calculation
       const calculationResult = calculateMassBalance(aircraft, stationWeights, fuelWeight);
       setResult(calculationResult);
+
+      // Landing calculation (with fuel burn)
+      if (fuelBurn > 0 && fuelBurn <= fuelVolume) {
+        const landingFuelWeight = (fuelVolume - fuelBurn) * aircraft.fuelDensity;
+        const landingCalculation = calculateMassBalance(aircraft, stationWeights, landingFuelWeight);
+        setLandingResult(landingCalculation);
+      } else {
+        setLandingResult(null);
+      }
     } else {
       setResult(null);
+      setLandingResult(null);
     }
-  }, [stationWeights, fuelVolume, aircraft]);
+  }, [stationWeights, fuelVolume, fuelBurn, aircraft]);
 
   const handleSliderChange = (stationId: string, value: number) => {
     setStationWeights(prev => ({ ...prev, [stationId]: Math.round(value) }));
@@ -58,6 +72,10 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
 
   const handleFuelSliderChange = (value: number) => {
     setFuelVolume(Math.round(value));
+  };
+
+  const handleFuelBurnSliderChange = (value: number) => {
+    setFuelBurn(Math.round(value));
   };
 
   const openEditor = (stationId: string) => {
@@ -68,6 +86,11 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
   const openFuelEditor = () => {
     setEditingFuel(true);
     setTempValue(fuelVolume.toString());
+  };
+
+  const openFuelBurnEditor = () => {
+    setEditingFuelBurn(true);
+    setTempValue(fuelBurn.toString());
   };
 
   const saveStationValue = () => {
@@ -91,6 +114,13 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
     setTempValue('');
   };
 
+  const saveFuelBurnValue = () => {
+    const value = parseFloat(tempValue) || 0;
+    setFuelBurn(Math.min(Math.max(0, value), fuelVolume));
+    setEditingFuelBurn(false);
+    setTempValue('');
+  };
+
   const clearAll = () => {
     const cleared: Record<string, number> = {};
     aircraft.stations.forEach(station => {
@@ -98,7 +128,9 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
     });
     setStationWeights(cleared);
     setFuelVolume(0);
+    setFuelBurn(0);
     setResult(null);
+    setLandingResult(null);
   };
 
   const getSliderColor = (value: number, max: number) => {
@@ -132,7 +164,10 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
           aircraft={aircraft}
           currentWeight={result?.totalWeight || 0}
           currentCG={result?.cgPosition || 0}
-          isWithinEnvelope={result?.isWithinEnvelope || true}
+          isWithinEnvelope={result ? result.isWithinEnvelope : true}
+          landingWeight={landingResult?.totalWeight}
+          landingCG={landingResult?.cgPosition}
+          landingIsWithinEnvelope={landingResult ? landingResult.isWithinEnvelope : true}
         />
       </View>
 
@@ -212,10 +247,52 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
           </View>
         </View>
 
+        {/* Fuel Burn Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Estimated Fuel Burn</Text>
+
+          <View style={styles.inputRow}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.inputLabelText}>Fuel to Burn</Text>
+              <Text style={styles.inputLabelSubtext}>
+                Max: {fuelVolume > 0 ? fuelVolume : 0} L ({fuelVolume > 0 ? (fuelVolume * aircraft.fuelDensity).toFixed(1) : '0.0'} kg)
+              </Text>
+            </View>
+
+            <View style={styles.sliderContainer}>
+              <Slider
+                style={styles.slider}
+                minimumValue={0}
+                maximumValue={fuelVolume > 0 ? fuelVolume : 100}
+                value={fuelBurn}
+                onValueChange={handleFuelBurnSliderChange}
+                minimumTrackTintColor={getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100)}
+                maximumTrackTintColor="#E0E0E0"
+                thumbTintColor={getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100)}
+                step={1}
+                disabled={fuelVolume === 0}
+              />
+              <TouchableOpacity
+                style={[styles.valueDisplay, {
+                  borderColor: getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100),
+                  opacity: fuelVolume === 0 ? 0.5 : 1
+                }]}
+                onPress={fuelVolume > 0 ? openFuelBurnEditor : undefined}
+                disabled={fuelVolume === 0}
+              >
+                <Text style={[styles.valueText, { color: getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100) }]}>
+                  {fuelBurn}
+                </Text>
+                <Text style={styles.unitText}>L</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
         {/* Results */}
         {result && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Results</Text>
+            <Text style={styles.sectionTitle}>Takeoff Configuration</Text>
 
             <View style={styles.resultCard}>
               <View style={styles.resultRow}>
@@ -263,6 +340,64 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 </View>
               )}
             </View>
+
+            {/* Landing Configuration */}
+            {landingResult && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Landing Configuration</Text>
+                <View style={styles.resultCard}>
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Fuel Burned:</Text>
+                    <Text style={styles.resultValue}>{fuelBurn} L ({(fuelBurn * aircraft.fuelDensity).toFixed(1)} kg)</Text>
+                  </View>
+
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Landing Weight:</Text>
+                    <Text style={styles.resultValue}>{landingResult.totalWeight.toFixed(1)} kg</Text>
+                  </View>
+
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Max Landing Weight:</Text>
+                    <Text style={styles.resultValue}>{aircraft.maxLandingWeight || aircraft.maxTakeoffWeight} kg</Text>
+                  </View>
+
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Landing CG:</Text>
+                    <Text style={styles.resultValue}>{inchesToMeters(landingResult.cgPosition).toFixed(3)} m</Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.statusContainer}>
+                    <View style={[
+                      styles.statusBadge,
+                      landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) ? styles.statusError : styles.statusSuccess
+                    ]}>
+                      <Text style={styles.statusText}>
+                        {landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) ? '⚠️ OVERWEIGHT' : '✓ Weight OK'}
+                      </Text>
+                    </View>
+
+                    <View style={[
+                      styles.statusBadge,
+                      !landingResult.isWithinEnvelope ? styles.statusError : styles.statusSuccess
+                    ]}>
+                      <Text style={styles.statusText}>
+                        {landingResult.isWithinEnvelope ? '✓ CG OK' : '⚠️ CG OUT OF LIMITS'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {(!landingResult.isWithinEnvelope || landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)) && (
+                    <View style={styles.warningBox}>
+                      <Text style={styles.warningText}>
+                        ⚠️ Landing configuration is not safe
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -343,6 +478,46 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSave]}
                 onPress={saveFuelValue}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSave]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Modal for Fuel Burn */}
+      <Modal
+        visible={editingFuelBurn}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingFuelBurn(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setEditingFuelBurn(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Fuel Burn</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={tempValue}
+              onChangeText={setTempValue}
+              keyboardType="decimal-pad"
+              autoFocus
+              selectTextOnFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setEditingFuelBurn(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSave]}
+                onPress={saveFuelBurnValue}
               >
                 <Text style={[styles.modalButtonText, styles.modalButtonTextSave]}>Save</Text>
               </TouchableOpacity>
@@ -584,5 +759,37 @@ const styles = StyleSheet.create({
   },
   modalButtonTextSave: {
     color: '#fff',
+  },
+  landingPreview: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#F5F9FF',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  landingPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginBottom: 10,
+  },
+  landingPreviewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  landingPreviewLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  landingPreviewValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  statusOk: {
+    color: '#34C759',
   },
 });

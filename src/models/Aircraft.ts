@@ -17,6 +17,7 @@ export interface AircraftConfig {
   stations: Station[];
   envelope: CGEnvelope;
   maxTakeoffWeight: number; // in kg
+  maxLandingWeight?: number; // in kg (optional, defaults to maxTakeoffWeight)
   fuelCapacity: number; // in liters
   fuelArm: number; // Fuel tank arm in inches
   fuelType: FuelType; // Type of fuel (avgas or jet-a)

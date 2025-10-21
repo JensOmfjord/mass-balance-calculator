@@ -17,6 +17,7 @@ export const LN_FTM: AircraftConfig = {
   stations: da40Stations,
   envelope: da40Envelope,
   maxTakeoffWeight: 1310, // kg (MTOW)
+  maxLandingWeight: 1280, // kg
   fuelCapacity: 155.2, // liters (147.6 liters usable)
   fuelArm: 103.54, // inches (2.63m from datum)
   fuelType: 'jet-a',

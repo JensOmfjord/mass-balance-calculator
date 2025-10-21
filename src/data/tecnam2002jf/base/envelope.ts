@@ -4,9 +4,10 @@ import { CGEnvelope } from '../../../models/CGEnvelope';
 // Weight in kg, CG positions in inches from datum
 // Forward limit: 26% CMA (1693mm = 66.65 inches)
 // Aft limit: 32.5% CMA (1782mm = 70.16 inches)
+// Minimum safe weight: 402 kg
 export const tecnamEnvelope: CGEnvelope = [
-  { weight: 370, cgMin: 66.65, cgMax: 70.16 }, // Empty weight baseline
+  { weight: 402, cgMin: 66.65, cgMax: 70.16 }, // Minimum safe weight
   { weight: 580, cgMin: 66.65, cgMax: 70.16 },
   { weight: 600, cgMin: 66.65, cgMax: 70.16 },
-  { weight: 620, cgMin: 66.65, cgMax: 70.16 },
+  { weight: 620, cgMin: 66.65, cgMax: 70.16 }, // MTOW
 ];
