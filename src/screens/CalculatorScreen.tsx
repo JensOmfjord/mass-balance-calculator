@@ -16,6 +16,7 @@ import { calculateMassBalance } from '../services/massBalanceCalculator';
 import { MassBalanceResult } from '../models/MassBalanceResult';
 import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
 import { inchesToMeters } from '../utils/units';
+import { saveAircraftConfig, loadAircraftConfig } from '../services/aircraftStorage';
 
 interface CalculatorScreenProps {
   aircraft: AircraftConfig;
@@ -33,14 +34,30 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
   const [editingFuelBurn, setEditingFuelBurn] = useState(false);
   const [tempValue, setTempValue] = useState<string>('');
 
-  // Initialize station weights to 0
+  // Load saved configuration on mount
   useEffect(() => {
-    const initialWeights: Record<string, number> = {};
-    aircraft.stations.forEach(station => {
-      initialWeights[station.id] = 0;
-    });
-    setStationWeights(initialWeights);
-  }, [aircraft]);
+    const loadSavedConfig = async () => {
+      const savedConfig = await loadAircraftConfig(aircraft.registration);
+
+      if (savedConfig) {
+        // Load saved values
+        setStationWeights(savedConfig.stationWeights);
+        setFuelVolume(savedConfig.fuelVolume);
+        setFuelBurn(savedConfig.fuelBurn);
+      } else {
+        // Initialize to zeros if no saved config
+        const initialWeights: Record<string, number> = {};
+        aircraft.stations.forEach(station => {
+          initialWeights[station.id] = 0;
+        });
+        setStationWeights(initialWeights);
+        setFuelVolume(0);
+        setFuelBurn(0);
+      }
+    };
+
+    loadSavedConfig();
+  }, [aircraft.registration]);
 
   // Calculate whenever inputs change
   useEffect(() => {
@@ -65,6 +82,24 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
       setLandingResult(null);
     }
   }, [stationWeights, fuelVolume, fuelBurn, aircraft]);
+
+  // Save configuration whenever it changes
+  useEffect(() => {
+    const saveConfig = async () => {
+      await saveAircraftConfig({
+        registration: aircraft.registration,
+        stationWeights,
+        fuelVolume,
+        fuelBurn,
+        lastUpdated: Date.now(),
+      });
+    };
+
+    // Only save if we have initialized values (avoid saving during initial load)
+    if (Object.keys(stationWeights).length > 0) {
+      saveConfig();
+    }
+  }, [stationWeights, fuelVolume, fuelBurn, aircraft.registration]);
 
   const handleSliderChange = (stationId: string, value: number) => {
     setStationWeights(prev => ({ ...prev, [stationId]: Math.round(value) }));
