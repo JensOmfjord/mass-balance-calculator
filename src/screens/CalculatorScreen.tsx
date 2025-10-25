@@ -105,15 +105,18 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
   }, [stationWeights, fuelVolume, fuelBurn, aircraft.registration]);
 
   const handleSliderChange = (stationId: string, value: number) => {
-    setStationWeights(prev => ({ ...prev, [stationId]: Math.round(value) }));
+    const roundedValue = Math.round(value);
+    setStationWeights(prev => ({ ...prev, [stationId]: roundedValue }));
   };
 
   const handleFuelSliderChange = (value: number) => {
-    setFuelVolume(Math.round(value));
+    const roundedValue = Math.round(value);
+    setFuelVolume(roundedValue);
   };
 
   const handleFuelBurnSliderChange = (value: number) => {
-    setFuelBurn(Math.round(value));
+    const roundedValue = Math.round(value);
+    setFuelBurn(roundedValue);
   };
 
   const openEditor = (stationId: string) => {
@@ -266,7 +269,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                     value={value}
                     onValueChange={(val) => handleSliderChange(station.id, val)}
                     minimumTrackTintColor={sliderColor}
-                    maximumTrackTintColor="#E0E0E0"
+                    maximumTrackTintColor={colors.gray200}
                     thumbTintColor={sliderColor}
                     step={1}
                   />
@@ -301,7 +304,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 value={fuelVolume}
                 onValueChange={handleFuelSliderChange}
                 minimumTrackTintColor={getSliderColor(fuelVolume, aircraft.fuelCapacity)}
-                maximumTrackTintColor="#E0E0E0"
+                maximumTrackTintColor={colors.gray200}
                 thumbTintColor={getSliderColor(fuelVolume, aircraft.fuelCapacity)}
                 step={1}
               />
@@ -338,7 +341,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 value={fuelBurn}
                 onValueChange={handleFuelBurnSliderChange}
                 minimumTrackTintColor={getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100)}
-                maximumTrackTintColor="#E0E0E0"
+                maximumTrackTintColor={colors.gray200}
                 thumbTintColor={getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100)}
                 step={1}
                 disabled={fuelVolume === 0}
@@ -388,7 +391,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                   styles.statusBadge,
                   result.exceedsMaxWeight ? styles.statusError : styles.statusSuccess
                 ]}>
-                  <Text style={styles.statusText}>
+                  <Text style={[styles.statusText, { color: result.exceedsMaxWeight ? colors.error : colors.success }]}>
                     {result.exceedsMaxWeight ? '⚠️ OVERWEIGHT' : '✓ Weight OK'}
                   </Text>
                 </View>
@@ -397,7 +400,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                   styles.statusBadge,
                   !result.isWithinEnvelope ? styles.statusError : styles.statusSuccess
                 ]}>
-                  <Text style={styles.statusText}>
+                  <Text style={[styles.statusText, { color: !result.isWithinEnvelope ? colors.error : colors.success }]}>
                     {result.isWithinEnvelope ? '✓ CG OK' : '⚠️ CG OUT OF LIMITS'}
                   </Text>
                 </View>
@@ -444,7 +447,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                       styles.statusBadge,
                       landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) ? styles.statusError : styles.statusSuccess
                     ]}>
-                      <Text style={styles.statusText}>
+                      <Text style={[styles.statusText, { color: landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) ? colors.error : colors.success }]}>
                         {landingResult.totalWeight > (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) ? '⚠️ OVERWEIGHT' : '✓ Weight OK'}
                       </Text>
                     </View>
@@ -453,7 +456,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                       styles.statusBadge,
                       !landingResult.isWithinEnvelope ? styles.statusError : styles.statusSuccess
                     ]}>
-                      <Text style={styles.statusText}>
+                      <Text style={[styles.statusText, { color: !landingResult.isWithinEnvelope ? colors.error : colors.success }]}>
                         {landingResult.isWithinEnvelope ? '✓ CG OK' : '⚠️ CG OUT OF LIMITS'}
                       </Text>
                     </View>
@@ -670,36 +673,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginTop: 20,
+    marginTop: 24,
     paddingHorizontal: 20,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 15,
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 16,
     color: colors.textPrimary,
+    letterSpacing: 0.3,
   },
   inputRow: {
     backgroundColor: colors.cardBackground,
-    padding: 15,
-    marginBottom: 15,
-    borderRadius: 12,
+    padding: 18,
+    marginBottom: 12,
+    borderRadius: 16,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.gray100,
   },
   labelContainer: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   inputLabelText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '600',
     color: colors.textPrimary,
+    marginBottom: 4,
   },
   inputLabelSubtext: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -731,73 +739,86 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     backgroundColor: colors.cardBackground,
-    padding: 20,
-    borderRadius: 12,
+    padding: 24,
+    borderRadius: 16,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.gray100,
   },
   resultRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   resultLabel: {
     fontSize: 16,
     color: colors.textSecondary,
+    fontWeight: '500',
   },
   resultValue: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   divider: {
     height: 1,
     backgroundColor: colors.gray200,
-    marginVertical: 15,
+    marginVertical: 18,
   },
   statusContainer: {
-    gap: 10,
+    gap: 12,
   },
   statusBadge: {
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 2,
   },
   statusSuccess: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E8F8F5',
+    borderColor: colors.success,
   },
   statusError: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FCE8E8',
+    borderColor: colors.error,
   },
   statusText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   warningBox: {
     backgroundColor: '#FFF3E0',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 15,
+    padding: 18,
+    borderRadius: 12,
+    marginTop: 18,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    borderLeftColor: colors.warning,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#E65100',
-    fontWeight: '600',
+    fontWeight: '700',
+    lineHeight: 22,
   },
   chartContainerTop: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardBackground,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingVertical: 10,
+    borderBottomColor: colors.gray200,
+    paddingVertical: 16,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   bottomPadding: {
-    height: 40,
+    height: 50,
   },
   modalOverlay: {
     flex: 1,
