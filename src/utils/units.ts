@@ -5,6 +5,8 @@
 import {
   FUEL_DENSITY_AVGAS_KG_PER_LITER,
   FUEL_DENSITY_AVGAS_LBS_PER_GALLON,
+  FUEL_DENSITY_UL91_KG_PER_LITER,
+  FUEL_DENSITY_UL91_LBS_PER_GALLON,
   FUEL_DENSITY_JETA_KG_PER_LITER,
   FUEL_DENSITY_JETA_LBS_PER_GALLON,
 } from './constants';
@@ -55,7 +57,11 @@ export const fuelVolumeToWeight = (
   if (fuelType === 'jet-a') {
     densityKgPerLiter = FUEL_DENSITY_JETA_KG_PER_LITER;
     densityLbsPerGallon = FUEL_DENSITY_JETA_LBS_PER_GALLON;
+  } else if (fuelType === 'ul91') {
+    densityKgPerLiter = FUEL_DENSITY_UL91_KG_PER_LITER;
+    densityLbsPerGallon = FUEL_DENSITY_UL91_LBS_PER_GALLON;
   } else {
+    // avgas
     densityKgPerLiter = FUEL_DENSITY_AVGAS_KG_PER_LITER;
     densityLbsPerGallon = FUEL_DENSITY_AVGAS_LBS_PER_GALLON;
   }

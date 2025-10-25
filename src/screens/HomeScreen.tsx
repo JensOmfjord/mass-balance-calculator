@@ -5,11 +5,17 @@ import { AircraftConfig } from '../models/Aircraft';
 
 interface HomeScreenProps {
   onSelectAircraft: (aircraft: AircraftConfig) => void;
+  onViewDetails: (aircraft: AircraftConfig) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onViewDetails }) => {
   const handleSelectAircraft = (aircraft: AircraftConfig) => {
     onSelectAircraft(aircraft);
+  };
+
+  const handleViewDetails = (aircraft: AircraftConfig, event: any) => {
+    event.stopPropagation();
+    onViewDetails(aircraft);
   };
 
   return (
@@ -25,11 +31,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft }) => {
             style={styles.aircraftCard}
             onPress={() => handleSelectAircraft(item)}
           >
-            <Text style={styles.registration}>{item.registration}</Text>
-            <Text style={styles.model}>{item.model}</Text>
-            <Text style={styles.details}>
-              Empty Weight: {item.emptyWeight} kg • Max TO: {item.maxTakeoffWeight} kg
-            </Text>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardMain}>
+                <Text style={styles.registration}>{item.registration}</Text>
+                <Text style={styles.model}>{item.model}</Text>
+                <Text style={styles.details}>
+                  Empty Weight: {item.emptyWeight} kg • Max TO: {item.maxTakeoffWeight} kg
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={(e) => handleViewDetails(item, e)}
+              >
+                <Text style={styles.infoButtonText}>ℹ️</Text>
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         )}
       />
@@ -65,6 +81,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardMain: {
+    flex: 1,
+  },
   registration: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -79,5 +103,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 8,
+  },
+  infoButton: {
+    padding: 8,
+    marginLeft: 12,
+  },
+  infoButtonText: {
+    fontSize: 28,
   },
 });

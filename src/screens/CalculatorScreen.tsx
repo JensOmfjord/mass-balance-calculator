@@ -15,7 +15,7 @@ import { AircraftConfig } from '../models/Aircraft';
 import { calculateMassBalance } from '../services/massBalanceCalculator';
 import { MassBalanceResult } from '../models/MassBalanceResult';
 import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
-import { inchesToMeters } from '../utils/units';
+import { inchesToMeters, kgToLbs, litersToGallons, metersToInches } from '../utils/units';
 import { saveAircraftConfig, loadAircraftConfig } from '../services/aircraftStorage';
 
 interface CalculatorScreenProps {
@@ -33,6 +33,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
   const [editingFuel, setEditingFuel] = useState(false);
   const [editingFuelBurn, setEditingFuelBurn] = useState(false);
   const [tempValue, setTempValue] = useState<string>('');
+  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
 
   // Load saved configuration on mount
   useEffect(() => {
@@ -175,6 +176,27 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
     return '#34C759';
   };
 
+  // Helper functions for unit conversion display
+  const displayWeight = (kg: number, decimals: number = 1): string => {
+    return unitSystem === 'metric' ? kg.toFixed(decimals) : kgToLbs(kg).toFixed(decimals);
+  };
+
+  const displayVolume = (liters: number, decimals: number = 1): string => {
+    return unitSystem === 'metric' ? liters.toFixed(decimals) : litersToGallons(liters).toFixed(decimals);
+  };
+
+  const displayDistance = (meters: number, decimals: number = 3): string => {
+    return unitSystem === 'metric' ? meters.toFixed(decimals) : metersToInches(meters).toFixed(decimals);
+  };
+
+  const weightUnit = unitSystem === 'metric' ? 'kg' : 'lbs';
+  const volumeUnit = unitSystem === 'metric' ? 'L' : 'gal';
+  const distanceUnit = unitSystem === 'metric' ? 'm' : 'in';
+
+  const toggleUnitSystem = () => {
+    setUnitSystem(prev => prev === 'metric' ? 'imperial' : 'metric');
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -188,6 +210,9 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
           <Text style={styles.registration}>{aircraft.registration}</Text>
           <Text style={styles.model}>{aircraft.model}</Text>
         </View>
+        <TouchableOpacity onPress={toggleUnitSystem} style={styles.unitToggle}>
+          <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'kg/L' : 'lbs/gal'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={clearAll} style={styles.clearButton}>
           <Text style={styles.clearButtonText}>Clear</Text>
         </TouchableOpacity>
@@ -219,7 +244,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
               <View key={station.id} style={styles.inputRow}>
                 <View style={styles.labelContainer}>
                   <Text style={styles.inputLabelText}>{station.name}</Text>
-                  <Text style={styles.inputLabelSubtext}>Max: {station.maxWeight} kg</Text>
+                  <Text style={styles.inputLabelSubtext}>Max: {displayWeight(station.maxWeight, 0)} {weightUnit}</Text>
                 </View>
 
                 <View style={styles.sliderContainer}>
@@ -239,9 +264,9 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                     onPress={() => openEditor(station.id)}
                   >
                     <Text style={[styles.valueText, { color: sliderColor }]}>
-                      {value}
+                      {displayWeight(value, 0)}
                     </Text>
-                    <Text style={styles.unitText}>kg</Text>
+                    <Text style={styles.unitText}>{weightUnit}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -253,7 +278,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
             <View style={styles.labelContainer}>
               <Text style={styles.inputLabelText}>Fuel</Text>
               <Text style={styles.inputLabelSubtext}>
-                Max: {aircraft.fuelCapacity} L ({(aircraft.fuelCapacity * aircraft.fuelDensity).toFixed(1)} kg)
+                Max: {displayVolume(aircraft.fuelCapacity, 0)} {volumeUnit} ({displayWeight(aircraft.fuelCapacity * aircraft.fuelDensity)} {weightUnit})
               </Text>
             </View>
 
@@ -274,9 +299,9 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 onPress={openFuelEditor}
               >
                 <Text style={[styles.valueText, { color: getSliderColor(fuelVolume, aircraft.fuelCapacity) }]}>
-                  {fuelVolume}
+                  {displayVolume(fuelVolume, 0)}
                 </Text>
-                <Text style={styles.unitText}>L</Text>
+                <Text style={styles.unitText}>{volumeUnit}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -290,7 +315,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
             <View style={styles.labelContainer}>
               <Text style={styles.inputLabelText}>Fuel to Burn</Text>
               <Text style={styles.inputLabelSubtext}>
-                Max: {fuelVolume > 0 ? fuelVolume : 0} L ({fuelVolume > 0 ? (fuelVolume * aircraft.fuelDensity).toFixed(1) : '0.0'} kg)
+                Max: {fuelVolume > 0 ? displayVolume(fuelVolume, 0) : 0} {volumeUnit} ({fuelVolume > 0 ? displayWeight(fuelVolume * aircraft.fuelDensity) : '0.0'} {weightUnit})
               </Text>
             </View>
 
@@ -316,9 +341,9 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 disabled={fuelVolume === 0}
               >
                 <Text style={[styles.valueText, { color: getSliderColor(fuelBurn, fuelVolume > 0 ? fuelVolume : 100) }]}>
-                  {fuelBurn}
+                  {displayVolume(fuelBurn, 0)}
                 </Text>
-                <Text style={styles.unitText}>L</Text>
+                <Text style={styles.unitText}>{volumeUnit}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -332,17 +357,17 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
             <View style={styles.resultCard}>
               <View style={styles.resultRow}>
                 <Text style={styles.resultLabel}>Total Weight:</Text>
-                <Text style={styles.resultValue}>{result.totalWeight.toFixed(1)} kg</Text>
+                <Text style={styles.resultValue}>{displayWeight(result.totalWeight)} {weightUnit}</Text>
               </View>
 
               <View style={styles.resultRow}>
                 <Text style={styles.resultLabel}>CG Position:</Text>
-                <Text style={styles.resultValue}>{inchesToMeters(result.cgPosition).toFixed(3)} m</Text>
+                <Text style={styles.resultValue}>{displayDistance(inchesToMeters(result.cgPosition))} {distanceUnit}</Text>
               </View>
 
               <View style={styles.resultRow}>
                 <Text style={styles.resultLabel}>Max Takeoff Weight:</Text>
-                <Text style={styles.resultValue}>{aircraft.maxTakeoffWeight} kg</Text>
+                <Text style={styles.resultValue}>{displayWeight(aircraft.maxTakeoffWeight, 0)} {weightUnit}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -383,22 +408,22 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
                 <View style={styles.resultCard}>
                   <View style={styles.resultRow}>
                     <Text style={styles.resultLabel}>Fuel Burned:</Text>
-                    <Text style={styles.resultValue}>{fuelBurn} L ({(fuelBurn * aircraft.fuelDensity).toFixed(1)} kg)</Text>
+                    <Text style={styles.resultValue}>{displayVolume(fuelBurn, 0)} {volumeUnit} ({displayWeight(fuelBurn * aircraft.fuelDensity)} {weightUnit})</Text>
                   </View>
 
                   <View style={styles.resultRow}>
                     <Text style={styles.resultLabel}>Landing Weight:</Text>
-                    <Text style={styles.resultValue}>{landingResult.totalWeight.toFixed(1)} kg</Text>
+                    <Text style={styles.resultValue}>{displayWeight(landingResult.totalWeight)} {weightUnit}</Text>
                   </View>
 
                   <View style={styles.resultRow}>
                     <Text style={styles.resultLabel}>Max Landing Weight:</Text>
-                    <Text style={styles.resultValue}>{aircraft.maxLandingWeight || aircraft.maxTakeoffWeight} kg</Text>
+                    <Text style={styles.resultValue}>{displayWeight(aircraft.maxLandingWeight || aircraft.maxTakeoffWeight, 0)} {weightUnit}</Text>
                   </View>
 
                   <View style={styles.resultRow}>
                     <Text style={styles.resultLabel}>Landing CG:</Text>
-                    <Text style={styles.resultValue}>{inchesToMeters(landingResult.cgPosition).toFixed(3)} m</Text>
+                    <Text style={styles.resultValue}>{displayDistance(inchesToMeters(landingResult.cgPosition))} {distanceUnit}</Text>
                   </View>
 
                   <View style={styles.divider} />
@@ -607,6 +632,18 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: 16,
     color: '#FF3B30',
+  },
+  unitToggle: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  unitToggleText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,

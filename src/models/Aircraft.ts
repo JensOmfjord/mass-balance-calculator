@@ -2,7 +2,7 @@ import { Station } from './Station';
 import { CGEnvelope } from './CGEnvelope';
 
 export type AircraftModelType = 'tecnam-2002jf' | 'da40-ng';
-export type FuelType = 'avgas' | 'jet-a';
+export type FuelType = 'avgas' | 'ul91' | 'jet-a';
 
 export interface AircraftConfig {
   registration: string; // Tail number (e.g., 'LN-DKH')
