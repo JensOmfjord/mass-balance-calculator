@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { AircraftConfig } from '../models/Aircraft';
 import { calculateMassBalance } from '../services/massBalanceCalculator';
@@ -17,6 +18,7 @@ import { MassBalanceResult } from '../models/MassBalanceResult';
 import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
 import { inchesToMeters, kgToLbs, litersToGallons, metersToInches } from '../utils/units';
 import { saveAircraftConfig, loadAircraftConfig } from '../services/aircraftStorage';
+import { colors, gradients } from '../theme/colors';
 
 interface CalculatorScreenProps {
   aircraft: AircraftConfig;
@@ -170,10 +172,10 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
   };
 
   const getSliderColor = (value: number, max: number) => {
-    if (value === 0) return '#CCCCCC';
-    if (value > max) return '#FF3B30';
-    if (value > max * 0.9) return '#FF9500';
-    return '#34C759';
+    if (value === 0) return colors.gray300;
+    if (value > max) return colors.error;
+    if (value > max * 0.9) return colors.warning;
+    return colors.success;
   };
 
   // Helper functions for unit conversion display
@@ -202,21 +204,30 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.registration}>{aircraft.registration}</Text>
-          <Text style={styles.model}>{aircraft.model}</Text>
+      <LinearGradient
+        colors={gradients.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <Text style={styles.registration}>{aircraft.registration}</Text>
+            <Text style={styles.model}>{aircraft.model}</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={toggleUnitSystem} style={styles.unitToggle}>
+              <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'kg/L' : 'lbs/gal'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={clearAll} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity onPress={toggleUnitSystem} style={styles.unitToggle}>
-          <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'kg/L' : 'lbs/gal'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={clearAll} style={styles.clearButton}>
-          <Text style={styles.clearButtonText}>Clear</Text>
-        </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {/* CG Envelope Chart - Always visible at top */}
       <View style={styles.chartContainerTop}>
@@ -592,25 +603,25 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 5,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: colors.white,
+    fontWeight: '600',
   },
   headerInfo: {
     flex: 1,
@@ -619,22 +630,32 @@ const styles = StyleSheet.create({
   registration: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.white,
   },
   model: {
     fontSize: 14,
-    color: '#666',
+    color: colors.white,
+    opacity: 0.9,
     marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   clearButton: {
     padding: 5,
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   clearButtonText: {
-    fontSize: 16,
-    color: '#FF3B30',
+    fontSize: 14,
+    color: colors.error,
+    fontWeight: '600',
   },
   unitToggle: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.white,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -642,7 +663,7 @@ const styles = StyleSheet.create({
   },
   unitToggleText: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.primary,
     fontWeight: '600',
   },
   scrollView: {
@@ -656,17 +677,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 15,
-    color: '#333',
+    color: colors.textPrimary,
   },
   inputRow: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardBackground,
     padding: 15,
     marginBottom: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
+    borderRadius: 12,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 2,
   },
   labelContainer: {
@@ -675,11 +696,11 @@ const styles = StyleSheet.create({
   inputLabelText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333',
+    color: colors.textPrimary,
   },
   inputLabelSubtext: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   sliderContainer: {
@@ -705,17 +726,17 @@ const styles = StyleSheet.create({
   },
   unitText: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   resultCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardBackground,
     padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
+    borderRadius: 12,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 3,
   },
   resultRow: {
@@ -726,16 +747,16 @@ const styles = StyleSheet.create({
   },
   resultLabel: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
   },
   resultValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.gray200,
     marginVertical: 15,
   },
   statusContainer: {

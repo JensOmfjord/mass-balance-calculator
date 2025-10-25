@@ -6,8 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { AircraftConfig } from '../models/Aircraft';
 import { inchesToMeters } from '../utils/units';
+import { colors, gradients } from '../theme/colors';
 
 interface AircraftDetailsScreenProps {
   aircraft: AircraftConfig;
@@ -17,7 +19,12 @@ interface AircraftDetailsScreenProps {
 export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ aircraft, onBack }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <LinearGradient
+        colors={gradients.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -26,7 +33,7 @@ export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ ai
           <Text style={styles.model}>{aircraft.model}</Text>
         </View>
         <View style={styles.placeholder} />
-      </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scrollView}>
         {/* Basic Specifications */}
@@ -144,7 +151,7 @@ export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ ai
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -152,17 +159,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 15,
     paddingTop: 60,
-    paddingBottom: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingBottom: 20,
   },
   backButton: {
     padding: 5,
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: colors.white,
+    fontWeight: '600',
   },
   headerInfo: {
     flex: 1,
@@ -171,11 +176,12 @@ const styles = StyleSheet.create({
   registration: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.white,
   },
   model: {
     fontSize: 14,
-    color: '#666',
+    color: colors.white,
+    opacity: 0.9,
     marginTop: 2,
   },
   placeholder: {
@@ -191,24 +197,26 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   stationName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   detailRow: {
@@ -219,19 +227,19 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 15,
-    color: '#666',
+    color: colors.textSecondary,
   },
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     textAlign: 'right',
     flex: 1,
     marginLeft: 20,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.gray200,
     marginVertical: 8,
   },
   tableHeader: {
@@ -239,13 +247,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
+    borderBottomColor: colors.primary,
   },
   tableHeaderText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: '#007AFF',
+    color: colors.primary,
     textAlign: 'center',
   },
   tableRow: {
@@ -253,17 +261,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.gray200,
   },
   tableCell: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   tableCellSecondary: {
     fontSize: 11,
-    color: '#999',
+    color: colors.textLight,
   },
   bottomPadding: {
     height: 40,

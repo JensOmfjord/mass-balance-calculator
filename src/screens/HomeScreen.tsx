@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { aircraftRegistry } from '../data/aircraftRegistry';
 import { AircraftConfig } from '../models/Aircraft';
+import { colors, gradients } from '../theme/colors';
 
 interface HomeScreenProps {
   onSelectAircraft: (aircraft: AircraftConfig) => void;
@@ -20,12 +22,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onView
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mass & Balance Calculator</Text>
-      <Text style={styles.subtitle}>Select Aircraft</Text>
+      <LinearGradient
+        colors={gradients.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <Text style={styles.title}>Mass & Balance Calculator</Text>
+        <Text style={styles.subtitle}>Select Aircraft</Text>
+      </LinearGradient>
 
       <FlatList
         data={aircraftRegistry}
         keyExtractor={(item) => item.registration}
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.aircraftCard}
@@ -56,30 +66,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onView
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
+    backgroundColor: colors.background,
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginTop: 40,
-    marginBottom: 10,
+    color: colors.white,
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 18,
-    color: '#666',
-    marginBottom: 20,
+    color: colors.white,
+    opacity: 0.9,
+  },
+  listContent: {
+    padding: 20,
   },
   aircraftCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.cardBackground,
     padding: 20,
     marginBottom: 12,
-    borderRadius: 10,
-    shadowColor: '#000',
+    borderRadius: 12,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -92,23 +111,25 @@ const styles = StyleSheet.create({
   registration: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.primary,
   },
   model: {
     fontSize: 16,
-    color: '#333',
+    color: colors.textPrimary,
     marginTop: 4,
   },
   details: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 8,
   },
   infoButton: {
     padding: 8,
     marginLeft: 12,
+    backgroundColor: colors.gray100,
+    borderRadius: 8,
   },
   infoButtonText: {
-    fontSize: 28,
+    fontSize: 24,
   },
 });
