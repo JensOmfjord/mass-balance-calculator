@@ -5,13 +5,13 @@ export const da40Stations: Station[] = [
     id: 'frontSeats',
     name: 'Front Seats',
     arm: 91.73, // 2.330m from datum
-    maxWeight: 200, // kg (2 x 100 kg)
+    maxWeight: 240, // kg (2 x 120 kg)
   },
   {
     id: 'rearSeats',
     name: 'Rear Seats',
     arm: 127.95, // 3.25m from datum
-    maxWeight: 176, // kg (2 x 88 kg)
+    maxWeight: 240, // kg (2 x 120 kg)
   },
   {
     id: 'baggageStandard',
