@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Svg, { Line, Polygon, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Line, Polygon, Circle, Text as SvgText, Defs, RadialGradient, Stop, Rect, ClipPath } from 'react-native-svg';
 import { AircraftConfig } from '../models/Aircraft';
 import { inchesToMeters } from '../utils/units';
 
@@ -163,15 +163,74 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
       {!isCollapsed && (
         <>
           <Svg width={chartWidth} height={chartHeight}>
+        <Defs>
+          {/* Radial gradients for position marker glow effects */}
+          <RadialGradient id="takeoffGlow" cx="50%" cy="50%">
+            <Stop offset="0%" stopColor={isWithinEnvelope ? '#2196F3' : '#FF3B30'} stopOpacity="0.6" />
+            <Stop offset="70%" stopColor={isWithinEnvelope ? '#2196F3' : '#FF3B30'} stopOpacity="0.2" />
+            <Stop offset="100%" stopColor={isWithinEnvelope ? '#2196F3' : '#FF3B30'} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="landingGlow" cx="50%" cy="50%">
+            <Stop offset="0%" stopColor={
+              landingIsWithinEnvelope && (landingWeight || 0) <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                ? '#34C759'
+                : '#FF9500'
+            } stopOpacity="0.6" />
+            <Stop offset="70%" stopColor={
+              landingIsWithinEnvelope && (landingWeight || 0) <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                ? '#34C759'
+                : '#FF9500'
+            } stopOpacity="0.2" />
+            <Stop offset="100%" stopColor={
+              landingIsWithinEnvelope && (landingWeight || 0) <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                ? '#34C759'
+                : '#FF9500'
+            } stopOpacity="0" />
+          </RadialGradient>
+          {/* Clip path for safe zone shading */}
+          <ClipPath id="chartBounds">
+            <Rect
+              x={paddingLeft}
+              y={paddingTop}
+              width={plotWidth}
+              height={plotHeight}
+            />
+          </ClipPath>
+        </Defs>
+
         {/* Grid lines */}
         {gridLines}
 
-        {/* Envelope polygon */}
+        {/* Safe zone shading - inside envelope (green tint) */}
         <Polygon
           points={envelopePolygon}
-          fill="#E8F5E9"
-          stroke="#4CAF50"
-          strokeWidth="2"
+          fill="rgba(76, 209, 160, 0.15)"
+          stroke="none"
+        />
+
+        {/* Unsafe zone shading - outside envelope but within chart (subtle red/yellow) */}
+        <Rect
+          x={paddingLeft}
+          y={paddingTop}
+          width={plotWidth}
+          height={plotHeight}
+          fill="rgba(251, 176, 64, 0.08)"
+          clipPath="url(#chartBounds)"
+        />
+
+        {/* Re-draw safe zone on top to override unsafe zone */}
+        <Polygon
+          points={envelopePolygon}
+          fill="rgba(76, 209, 160, 0.15)"
+          stroke="none"
+        />
+
+        {/* Envelope border */}
+        <Polygon
+          points={envelopePolygon}
+          fill="none"
+          stroke="#4BD1A0"
+          strokeWidth="2.5"
         />
 
         {/* Max Landing Weight line */}
@@ -209,8 +268,9 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
               x2={currentX}
               y2={chartHeight - paddingBottom}
               stroke={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
-              strokeWidth="1"
+              strokeWidth="1.5"
               strokeDasharray="4,4"
+              opacity="0.6"
             />
             <Line
               x1={paddingLeft}
@@ -218,18 +278,38 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
               x2={chartWidth - paddingRight}
               y2={currentY}
               stroke={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
-              strokeWidth="1"
+              strokeWidth="1.5"
               strokeDasharray="4,4"
+              opacity="0.6"
+            />
+
+            {/* Glow effect for takeoff position */}
+            <Circle
+              cx={currentX}
+              cy={currentY}
+              r="12"
+              fill="url(#takeoffGlow)"
+            />
+
+            {/* Outer ring */}
+            <Circle
+              cx={currentX}
+              cy={currentY}
+              r="6"
+              fill="none"
+              stroke={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
+              strokeWidth="1.5"
+              opacity="0.5"
             />
 
             {/* Takeoff position dot */}
             <Circle
               cx={currentX}
               cy={currentY}
-              r="6"
+              r="4"
               fill={isWithinEnvelope ? '#2196F3' : '#FF3B30'}
               stroke="#FFF"
-              strokeWidth="2"
+              strokeWidth="1.5"
             />
           </>
         )}
@@ -248,8 +328,9 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
                   ? '#34C759'
                   : '#FF9500'
               }
-              strokeWidth="1"
+              strokeWidth="1.5"
               strokeDasharray="2,2"
+              opacity="0.6"
             />
             <Line
               x1={paddingLeft}
@@ -261,22 +342,46 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
                   ? '#34C759'
                   : '#FF9500'
               }
-              strokeWidth="1"
+              strokeWidth="1.5"
               strokeDasharray="2,2"
+              opacity="0.6"
+            />
+
+            {/* Glow effect for landing position */}
+            <Circle
+              cx={landingX}
+              cy={landingY}
+              r="12"
+              fill="url(#landingGlow)"
+            />
+
+            {/* Outer ring */}
+            <Circle
+              cx={landingX}
+              cy={landingY}
+              r="6"
+              fill="none"
+              stroke={
+                landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
+                  ? '#34C759'
+                  : '#FF9500'
+              }
+              strokeWidth="1.5"
+              opacity="0.5"
             />
 
             {/* Landing position dot */}
             <Circle
               cx={landingX}
               cy={landingY}
-              r="6"
+              r="4"
               fill={
                 landingIsWithinEnvelope && landingWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight)
                   ? '#34C759'
                   : '#FF9500'
               }
               stroke="#FFF"
-              strokeWidth="2"
+              strokeWidth="1.5"
             />
           </>
         )}
