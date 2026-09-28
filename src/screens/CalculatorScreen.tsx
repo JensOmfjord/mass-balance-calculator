@@ -23,9 +23,10 @@ import { colors, gradients } from '../theme/colors';
 interface CalculatorScreenProps {
   aircraft: AircraftConfig;
   onBack: () => void;
+  onOpenPerformance?: () => void;
 }
 
-export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, onBack }) => {
+export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, onBack, onOpenPerformance }) => {
   const [stationWeights, setStationWeights] = useState<Record<string, number>>({});
   const [fuelVolume, setFuelVolume] = useState<number>(0);
   const [fuelBurn, setFuelBurn] = useState<number>(0);
@@ -222,6 +223,11 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ aircraft, on
             <Text style={styles.model}>{aircraft.model}</Text>
           </View>
           <View style={styles.headerActions}>
+            {onOpenPerformance && (
+              <TouchableOpacity onPress={onOpenPerformance} style={styles.unitToggle}>
+                <Text style={styles.unitToggleText}>Perf</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={toggleUnitSystem} style={styles.unitToggle}>
               <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'kg/L' : 'lbs/gal'}</Text>
             </TouchableOpacity>
