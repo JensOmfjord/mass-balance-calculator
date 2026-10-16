@@ -1,5 +1,6 @@
 import { Station } from './Station';
 import { CGEnvelope } from './CGEnvelope';
+import { PerformanceData } from './Performance';
 
 export type AircraftModelType = 'tecnam-2002jf' | 'da40-ng';
 export type FuelType = 'avgas' | 'ul91' | 'jet-a';
@@ -23,6 +24,9 @@ export interface AircraftConfig {
   fuelType: FuelType; // Type of fuel (avgas or jet-a)
   fuelDensity: number; // Fuel density in kg/liter
   defaultUnit: 'kg' | 'lbs';
+
+  // AFM performance tables (optional, per model type)
+  performance?: PerformanceData;
 
   // Display metadata
   manufacturer: string;

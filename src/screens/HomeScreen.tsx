@@ -8,9 +8,10 @@ import { colors, gradients } from '../theme/colors';
 interface HomeScreenProps {
   onSelectAircraft: (aircraft: AircraftConfig) => void;
   onViewDetails: (aircraft: AircraftConfig) => void;
+  onOpenPerformance?: (aircraft: AircraftConfig) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onViewDetails }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onViewDetails, onOpenPerformance }) => {
   const handleSelectAircraft = (aircraft: AircraftConfig) => {
     onSelectAircraft(aircraft);
   };
@@ -18,6 +19,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onView
   const handleViewDetails = (aircraft: AircraftConfig, event: any) => {
     event.stopPropagation();
     onViewDetails(aircraft);
+  };
+
+  const handleOpenPerformance = (aircraft: AircraftConfig, event: any) => {
+    event.stopPropagation();
+    if (onOpenPerformance) {
+      onOpenPerformance(aircraft);
+    } else {
+      onSelectAircraft(aircraft);
+    }
   };
 
   return (
@@ -49,12 +59,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onView
                   Empty Weight: {item.emptyWeight} kg • Max TO: {item.maxTakeoffWeight} kg
                 </Text>
               </View>
-              <TouchableOpacity
-                style={styles.infoButton}
-                onPress={(e) => handleViewDetails(item, e)}
-              >
-                <Text style={styles.infoButtonText}>ℹ️</Text>
-              </TouchableOpacity>
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={styles.perfButton}
+                  onPress={(e) => handleOpenPerformance(item, e)}
+                >
+                  <Text style={styles.perfButtonText}>Perf</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.infoButton}
+                  onPress={(e) => handleViewDetails(item, e)}
+                >
+                  <Text style={styles.infoButtonText}>ℹ️</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </TouchableOpacity>
         )}
@@ -131,5 +149,21 @@ const styles = StyleSheet.create({
   },
   infoButtonText: {
     fontSize: 24,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  perfButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginLeft: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  perfButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
   },
 });
