@@ -51,6 +51,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
       headerRight: () => (
         <PressableScale
           style={styles.headerInfoButton}
+          hitSlop={12}
           onPress={() => {
             hapticTap();
             navigation.navigate('Details', { aircraft });
@@ -615,12 +616,14 @@ const styles = StyleSheet.create({
     padding: list.xl,
     borderRadius: list.cardRadius,
     marginTop: 10,
+    alignItems: 'center',
   },
   warningText: {
     ...typography.subhead,
     color: colors.error,
     fontWeight: '600',
     lineHeight: 20,
+    textAlign: 'center',
   },
   toolbarOuter: {
     position: 'absolute',
@@ -675,17 +678,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerInfoButton: {
-    width: 32,
-    height: 32,
-    backgroundColor: colors.fill,
-    borderRadius: 16,
-    justifyContent: 'center',
+    width: 44,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
   headerInfoButtonText: {
     ...typography.title3,
     fontWeight: '600',
     color: colors.primary,
-    marginTop: -2,
   },
 });
