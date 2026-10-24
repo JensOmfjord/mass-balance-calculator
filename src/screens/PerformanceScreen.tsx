@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  Modal,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PressableScale } from '../components/PressableScale';
+import { ValueEditSheet } from '../components/ValueEditSheet';
 import { AircraftConfig } from '../models/Aircraft';
 import {
   FieldConditions,
@@ -27,12 +28,12 @@ import {
   savePerformanceConfig,
 } from '../services/performanceStorage';
 import { loadAircraftConfig } from '../services/aircraftStorage';
+import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
-
-interface PerformanceScreenProps {
-  aircraft: AircraftConfig;
-  onBack: () => void;
-}
+import { typography } from '../theme/typography';
+import { list } from '../theme/spacing';
+import { hapticTap, hapticSuccess, hapticWarning, hapticError } from '../utils/haptics';
+type PerformanceScreenProps = NativeStackScreenProps<RootStackParamList, 'Performance'>;
 
 interface EditingTarget {
   scope: 'departure' | 'arrival' | 'weights';
@@ -61,7 +62,10 @@ const LANDING_GRASS_OPTIONS: { value: GrassCondition; label: string }[] = [
 
 const metersToFeet = (m: number): number => m * 3.28084;
 
-export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, onBack }) => {
+export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) => {
+  const aircraft: AircraftConfig = route.params.aircraft;
+  const insets = useSafeAreaInsets();
+
   const [sameField, setSameField] = useState(true);
   const [departure, setDeparture] = useState<FieldConditions>(createDefaultFieldConditions());
   const [arrival, setArrival] = useState<FieldConditions>(createDefaultFieldConditions());
@@ -136,7 +140,27 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
     });
   }, [aircraft, landingField, lwKg]);
 
+  // Haptic feedback on Go / No-Go status transitions
+  const overallStatus =
+    takeoffResult?.status === 'unsafe' || landingResult?.status === 'unsafe'
+      ? 'unsafe'
+      : takeoffResult?.status === 'caution' || landingResult?.status === 'caution'
+      ? 'caution'
+      : takeoffResult && landingResult
+      ? 'ok'
+      : null;
+
+  useEffect(() => {
+    if (!overallStatus) return;
+    if (overallStatus === 'unsafe') hapticError();
+    else if (overallStatus === 'caution') hapticWarning();
+    else hapticSuccess();
+    // Fire only when the overall verdict changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overallStatus]);
+
   const updateConditions = (scope: 'departure' | 'arrival', patch: Partial<FieldConditions>) => {
+    hapticTap();
     if (scope === 'departure') {
       setDeparture(prev => ({ ...prev, ...patch }));
     } else {
@@ -145,6 +169,7 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
   };
 
   const openEditor = (target: EditingTarget) => {
+    hapticTap();
     let value = 0;
     if (target.scope === 'weights') {
       value = target.prop === 'tow' ? towKg : lwKg;
@@ -204,34 +229,49 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
     onPress: () => void,
     danger: boolean = false
   ) => (
-    <TouchableOpacity
+    <PressableScale
       key={label}
-      style={[
-        styles.chip,
-        selected && (danger ? styles.chipDanger : styles.chipSelected),
-      ]}
+      style={[styles.chip, selected && (danger ? styles.chipDanger : styles.chipSelected)]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-    </TouchableOpacity>
+    </PressableScale>
   );
 
-  const renderToggleRow = (
-    label: string,
-    value: boolean,
-    onToggle: () => void
-  ) => (
+  const renderToggleRow = (label: string, value: boolean, onToggle: () => void) => (
     <View style={styles.toggleRow}>
       <Text style={styles.toggleLabel}>{label}</Text>
-      <TouchableOpacity
-        style={[styles.toggleChip, value ? styles.toggleOn : styles.toggleOff]}
-        onPress={onToggle}
-      >
-        <Text style={[styles.toggleText, value ? styles.toggleTextOn : styles.toggleTextOff]}>
-          {value ? 'YES' : 'NO'}
-        </Text>
-      </TouchableOpacity>
+      <Switch
+        value={value}
+        onValueChange={() => {
+          hapticTap();
+          onToggle();
+        }}
+        trackColor={{ false: colors.fill, true: colors.primary }}
+        thumbTintColor={colors.white}
+      />
     </View>
+  );
+
+  const renderEditRow = (
+    label: string,
+    value: string,
+    target: EditingTarget
+  ) => (
+    <PressableScale
+      style={styles.editRow}
+      onPress={() => openEditor(target)}
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${label}`}
+    >
+      <Text style={styles.editLabel}>{label}</Text>
+      <View style={styles.editValueContainer}>
+        <Text style={styles.editValue}>{value}</Text>
+        <Text style={styles.chevron}>›</Text>
+      </View>
+    </PressableScale>
   );
 
   const renderFieldSection = (
@@ -241,183 +281,121 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
     isTakeoff: boolean
   ) => {
     const conditions = scope === 'departure' ? departure : arrival;
-    const prefix = scope === 'departure' ? 'dep' : 'arr';
     const grassOptions = isTakeoff ? TAKEOFF_GRASS_OPTIONS : LANDING_GRASS_OPTIONS;
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{title}</Text>
+      <>
+        <Text style={styles.sectionHeader}>{title}</Text>
+        <View style={styles.section}>
+          <View style={styles.inputCard}>
+            {renderEditRow('Elevation', `${conditions.elevationFt.toFixed(0)} ft`, {
+              scope,
+              prop: 'elevationFt',
+              label: 'Field Elevation',
+              unit: 'ft',
+              min: -1000,
+              max: 15000,
+            })}
 
-        <View style={styles.inputCard}>
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'elevationFt',
-                label: 'Field Elevation',
-                unit: 'ft',
-                min: -1000,
-                max: 15000,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>Elevation</Text>
-            <Text style={styles.editValue}>{conditions.elevationFt.toFixed(0)} ft</Text>
-          </TouchableOpacity>
+            {renderEditRow('QNH', `${conditions.qnhHpa.toFixed(0)} hPa`, {
+              scope,
+              prop: 'qnhHpa',
+              label: 'QNH',
+              unit: 'hPa',
+              min: 950,
+              max: 1050,
+            })}
 
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'qnhHpa',
-                label: 'QNH',
-                unit: 'hPa',
-                min: 950,
-                max: 1050,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>QNH</Text>
-            <Text style={styles.editValue}>{conditions.qnhHpa.toFixed(0)} hPa</Text>
-          </TouchableOpacity>
+            {renderEditRow('OAT', `${conditions.oatC.toFixed(0)} °C`, {
+              scope,
+              prop: 'oatC',
+              label: 'Outside Air Temperature',
+              unit: '°C',
+              min: -40,
+              max: 60,
+            })}
 
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'oatC',
-                label: 'Outside Air Temperature',
-                unit: '°C',
-                min: -40,
-                max: 60,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>OAT</Text>
-            <Text style={styles.editValue}>{conditions.oatC.toFixed(0)} °C</Text>
-          </TouchableOpacity>
+            {renderEditRow('Wind', displayWind(conditions.windKts), {
+              scope,
+              prop: 'windKts',
+              label: 'Wind Component (+head / -tail)',
+              unit: 'kt',
+              min: -50,
+              max: 50,
+            })}
 
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'windKts',
-                label: 'Wind Component (+head / -tail)',
-                unit: 'kt',
-                min: -50,
-                max: 50,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>Wind</Text>
-            <Text style={styles.editValue}>{displayWind(conditions.windKts)}</Text>
-          </TouchableOpacity>
+            {renderEditRow('Slope', displaySlope(conditions.slopePercent), {
+              scope,
+              prop: 'slopePercent',
+              label: 'Runway Slope (+up / -down)',
+              unit: '%',
+              min: -10,
+              max: 10,
+            })}
 
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'slopePercent',
-                label: 'Runway Slope (+up / -down)',
-                unit: '%',
-                min: -10,
-                max: 10,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>Slope</Text>
-            <Text style={styles.editValue}>{displaySlope(conditions.slopePercent)}</Text>
-          </TouchableOpacity>
+            {renderEditRow(runwayLabel, displayDistance(conditions.runwayLengthM), {
+              scope,
+              prop: 'runwayLengthM',
+              label: runwayLabel,
+              unit: 'm',
+              min: 0,
+              max: 5000,
+            })}
 
-          <TouchableOpacity
-            style={styles.editRow}
-            onPress={() =>
-              openEditor({
-                scope,
-                prop: 'runwayLengthM',
-                label: runwayLabel,
-                unit: 'm',
-                min: 0,
-                max: 5000,
-              })
-            }
-          >
-            <Text style={styles.editLabel}>{runwayLabel}</Text>
-            <Text style={styles.editValue}>{displayDistance(conditions.runwayLengthM)}</Text>
-          </TouchableOpacity>
+            <View style={styles.divider} />
 
-          <View style={styles.divider} />
-
-          <Text style={styles.choiceLabel}>Surface</Text>
-          <View style={styles.chipRow}>
-            {renderChip('Paved', conditions.surface === 'paved', () =>
-              updateConditions(scope, { surface: 'paved' })
-            )}
-            {renderChip('Grass', conditions.surface === 'grass', () =>
-              updateConditions(scope, { surface: 'grass' })
-            )}
-          </View>
-
-          {conditions.surface === 'paved' && (
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Runway wet</Text>
-              <TouchableOpacity
-                style={[
-                  styles.toggleChip,
-                  conditions.pavedWet ? styles.toggleOn : styles.toggleOff,
-                ]}
-                onPress={() => updateConditions(scope, { pavedWet: !conditions.pavedWet })}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    conditions.pavedWet ? styles.toggleTextOn : styles.toggleTextOff,
-                  ]}
-                >
-                  {conditions.pavedWet ? 'YES' : 'NO'}
-                </Text>
-              </TouchableOpacity>
+            <Text style={styles.choiceLabel}>Surface</Text>
+            <View style={styles.chipRow}>
+              {renderChip('Paved', conditions.surface === 'paved', () =>
+                updateConditions(scope, { surface: 'paved' })
+              )}
+              {renderChip('Grass', conditions.surface === 'grass', () =>
+                updateConditions(scope, { surface: 'grass' })
+              )}
             </View>
-          )}
 
-          {conditions.surface === 'grass' && (
-            <>
-              <Text style={styles.choiceLabel}>Grass Condition</Text>
-              <View style={styles.chipRow}>
-                {grassOptions.map(option =>
-                  renderChip(
-                    option.label,
-                    conditions.grassCondition === option.value,
-                    () => updateConditions(scope, { grassCondition: option.value }),
-                    option.value === 'too-high'
-                  )
-                )}
+            {conditions.surface === 'paved' && (
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Runway wet</Text>
+                <Switch
+                  value={conditions.pavedWet}
+                  onValueChange={() =>
+                    updateConditions(scope, { pavedWet: !conditions.pavedWet })
+                  }
+                  trackColor={{ false: colors.fill, true: colors.primary }}
+                  thumbTintColor={colors.white}
+                />
               </View>
-            </>
-          )}
-
-          {renderToggleRow('Soft ground', conditions.softGround, () =>
-            updateConditions(scope, { softGround: !conditions.softGround })
-          )}
-
-          {isTakeoff &&
-            renderToggleRow('Wheel fairings installed', conditions.wheelFairings, () =>
-              updateConditions(scope, { wheelFairings: !conditions.wheelFairings })
             )}
-        </View>
-      </View>
-    );
-  };
 
-  const statusLabel = (status: PerformanceStatus, margin: number): string => {
-    if (status === 'unsafe') return '✕ NO-GO';
-    if (status === 'caution') return '⚠️ MARGINAL';
-    return `✓ GO  ${displayMargin(margin)}`;
+            {conditions.surface === 'grass' && (
+              <>
+                <Text style={styles.choiceLabel}>Grass Condition</Text>
+                <View style={styles.chipRow}>
+                  {grassOptions.map(option =>
+                    renderChip(
+                      option.label,
+                      conditions.grassCondition === option.value,
+                      () => updateConditions(scope, { grassCondition: option.value }),
+                      option.value === 'too-high'
+                    )
+                  )}
+                </View>
+              </>
+            )}
+
+            {renderToggleRow('Soft ground', conditions.softGround, () =>
+              updateConditions(scope, { softGround: !conditions.softGround })
+            )}
+
+            {isTakeoff &&
+              renderToggleRow('Wheel fairings installed', conditions.wheelFairings, () =>
+                updateConditions(scope, { wheelFairings: !conditions.wheelFairings })
+              )}
+          </View>
+        </View>
+      </>
+    );
   };
 
   const renderResultCard = (result: PhasePerformance, title: string, isTakeoff: boolean) => {
@@ -438,7 +416,9 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
       <View style={styles.resultCard}>
         <View style={styles.resultHeader}>
           <Text style={styles.resultTitle}>{title}</Text>
-          <Text style={styles.resultConditions}>{result.speeds.map(s => `${s.label} ${s.kias} kt`).join(' / ')} IAS</Text>
+          <Text style={styles.resultConditions}>
+            {result.speeds.map(s => `${s.label} ${s.kias} kt`).join(' / ')} IAS
+          </Text>
         </View>
 
         <View style={styles.resultRow}>
@@ -485,7 +465,11 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
 
         <View style={[styles.statusBadge, statusStyle]}>
           <Text style={[styles.statusText, { color: statusColor }]}>
-            {statusLabel(result.status, result.marginM)}
+            {result.status === 'unsafe'
+              ? 'No-Go'
+              : result.status === 'caution'
+              ? `Marginal  ${displayMargin(result.marginM)}`
+              : `Go  ${displayMargin(result.marginM)}`}
           </Text>
         </View>
 
@@ -508,31 +492,8 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient
-        colors={[colors.gradientStart, colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <Text style={styles.registration}>{aircraft.registration}</Text>
-            <Text style={styles.model}>Performance</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setDistanceUnit(prev => (prev === 'metric' ? 'imperial' : 'metric'))}
-            style={styles.unitToggle}
-          >
-            <Text style={styles.unitToggleText}>{distanceUnit === 'metric' ? 'm' : 'ft'}</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
       <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
         {!hasPerformance && (
           <View style={styles.warningBox}>
@@ -542,19 +503,18 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
           </View>
         )}
 
-        <View style={styles.section}>
-          <View style={styles.sameFieldCard}>
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Same field for departure and arrival</Text>
-              <TouchableOpacity
-                style={[styles.toggleChip, sameField ? styles.toggleOn : styles.toggleOff]}
-                onPress={() => setSameField(prev => !prev)}
-              >
-                <Text style={[styles.toggleText, sameField ? styles.toggleTextOn : styles.toggleTextOff]}>
-                  {sameField ? 'YES' : 'NO'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+        <View style={[styles.section, styles.sameFieldCard]}>
+          <View style={styles.toggleRow}>
+            <Text style={styles.toggleLabel}>Same field for departure and arrival</Text>
+            <Switch
+              value={sameField}
+              onValueChange={() => {
+                hapticTap();
+                setSameField(prev => !prev);
+              }}
+              trackColor={{ false: colors.fill, true: colors.primary }}
+              thumbTintColor={colors.white}
+            />
           </View>
         </View>
 
@@ -562,118 +522,103 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
 
         {!sameField && renderFieldSection('arrival', 'Arrival', 'Runway Length (LDA)', false)}
 
+        <Text style={styles.sectionHeader}>Weights</Text>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Weights</Text>
           <View style={styles.inputCard}>
-            <TouchableOpacity
-              style={styles.editRow}
-              onPress={() =>
-                openEditor({
-                  scope: 'weights',
-                  prop: 'tow',
-                  label: 'Takeoff Weight',
-                  unit: 'kg',
-                  min: 0,
-                  max: aircraft.maxTakeoffWeight,
-                })
-              }
-            >
-              <Text style={styles.editLabel}>Takeoff Weight</Text>
-              <Text style={styles.editValue}>{towKg.toFixed(0)} kg</Text>
-            </TouchableOpacity>
+            {renderEditRow('Takeoff Weight', `${towKg.toFixed(0)} kg`, {
+              scope: 'weights',
+              prop: 'tow',
+              label: 'Takeoff Weight',
+              unit: 'kg',
+              min: 0,
+              max: aircraft.maxTakeoffWeight,
+            })}
 
-            <TouchableOpacity
-              style={styles.editRow}
-              onPress={() =>
-                openEditor({
-                  scope: 'weights',
-                  prop: 'lw',
-                  label: 'Landing Weight',
-                  unit: 'kg',
-                  min: 0,
-                  max: aircraft.maxLandingWeight || aircraft.maxTakeoffWeight,
-                })
-              }
-            >
-              <Text style={styles.editLabel}>Landing Weight</Text>
-              <Text style={styles.editValue}>{lwKg.toFixed(0)} kg</Text>
-            </TouchableOpacity>
+            {renderEditRow('Landing Weight', `${lwKg.toFixed(0)} kg`, {
+              scope: 'weights',
+              prop: 'lw',
+              label: 'Landing Weight',
+              unit: 'kg',
+              min: 0,
+              max: aircraft.maxLandingWeight || aircraft.maxTakeoffWeight,
+            })}
 
-            <Text style={styles.hintText}>Defaults from Weight & Balance - tap to adjust</Text>
+            <Text style={styles.hintText}>Defaults from Weight & Balance — tap to adjust</Text>
           </View>
         </View>
 
         {hasPerformance && takeoffResult && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Results</Text>
-            {renderResultCard(takeoffResult, 'Take-off', true)}
-            {landingResult && renderResultCard(landingResult, 'Landing', false)}
-          </View>
+          <>
+            <Text style={styles.sectionHeader}>Results</Text>
+            <View style={styles.section}>
+              {renderResultCard(takeoffResult, 'Take-off', true)}
+              {landingResult && renderResultCard(landingResult, 'Landing', false)}
+            </View>
+          </>
         )}
 
         {hasPerformance && perf && (
-          <View style={styles.section}>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>AFM Reference Conditions</Text>
-              <Text style={styles.infoText}>Take-off: {perf.takeoff.conditions}</Text>
-              <Text style={styles.infoText}>Landing: {perf.landing.conditions}</Text>
-              <Text style={styles.infoTitle}>Cautions</Text>
-              {[...perf.takeoff.cautions, ...perf.landing.cautions].map((caution, index) => (
-                <Text key={index} style={styles.infoText}>
-                  • {caution}
-                </Text>
-              ))}
-              <Text style={styles.infoSource}>{perf.source}</Text>
+          <>
+            <Text style={styles.sectionHeader}>AFM Reference</Text>
+            <View style={styles.section}>
+              <View style={styles.infoCard}>
+                <Text style={styles.infoTitle}>Take-off conditions</Text>
+                <Text style={styles.infoText}>{perf.takeoff.conditions}</Text>
+                <Text style={styles.infoTitle}>Landing conditions</Text>
+                <Text style={styles.infoText}>{perf.landing.conditions}</Text>
+                <Text style={styles.infoTitle}>Cautions</Text>
+                {[...perf.takeoff.cautions, ...perf.landing.cautions].map((caution, index) => (
+                  <Text key={index} style={styles.infoText}>
+                    • {caution}
+                  </Text>
+                ))}
+                <Text style={styles.infoSource}>{perf.source}</Text>
+              </View>
             </View>
-          </View>
+          </>
         )}
 
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      <Modal
-        visible={editing !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditing(null)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setEditing(null)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editing?.label}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={tempValue}
-              onChangeText={setTempValue}
-              keyboardType="numbers-and-punctuation"
-              autoFocus
-              selectTextOnFocus
-            />
-            <Text style={styles.modalHint}>
-              {editing?.unit}
-              {editing?.prop === 'windKts' ? ' (negative = tailwind)' : ''}
-              {editing?.prop === 'slopePercent' ? ' (negative = downhill)' : ''}
+      {/* Bottom action bar — oval pill, iOS settings search-bar style */}
+      <View style={[styles.toolbarOuter, { paddingBottom: 10 + insets.bottom }]}>
+        <View style={styles.toolbar}>
+          <PressableScale
+            style={styles.toolbarButton}
+            onPress={() => {
+              hapticTap();
+              setDistanceUnit(prev => (prev === 'metric' ? 'imperial' : 'metric'));
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle distance units"
+          >
+            <Text style={styles.toolbarButtonText} numberOfLines={1}>
+              {distanceUnit === 'metric' ? 'Meters' : 'Feet'}
             </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setEditing(null)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonSave]}
-                onPress={saveEditing}
-              >
-                <Text style={styles.modalButtonTextSave}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+          </PressableScale>
+        </View>
+      </View>
+
+      <ValueEditSheet
+        visible={editing !== null}
+        title={editing?.label || ''}
+        value={tempValue}
+        onChangeText={setTempValue}
+        keyboardType="numbers-and-punctuation"
+        hint={
+          editing
+            ? `${editing.unit}${
+                editing.prop === 'windKts' ? ' (negative = tailwind)' : ''
+              }${editing.prop === 'slopePercent' ? ' (negative = downhill)' : ''}`
+            : undefined
+        }
+        onCancel={() => {
+          setEditing(null);
+          setTempValue('');
+        }}
+        onSave={saveEditing}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -681,117 +626,66 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ aircraft, 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    padding: 5,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: colors.white,
-    fontWeight: '600',
-  },
-  headerInfo: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  registration: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.white,
-  },
-  model: {
-    fontSize: 14,
-    color: colors.white,
-    opacity: 0.9,
-    marginTop: 2,
-  },
-  unitToggle: {
-    backgroundColor: colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  unitToggleText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
+    backgroundColor: colors.systemGroupedBackground,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    paddingHorizontal: list.insetHorizontal,
+    marginBottom: list.cardGap,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
-    color: colors.textPrimary,
-    letterSpacing: 0.3,
+  sectionHeader: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: list.insetHorizontal + list.cardGap,
+    paddingTop: list.section,
+    paddingBottom: 8,
   },
   inputCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 18,
-    marginBottom: 12,
-    borderRadius: 16,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: colors.gray100,
+    backgroundColor: colors.secondarySystemGroupedBackground,
+    padding: list.xl,
+    marginBottom: list.cardGap,
+    borderRadius: list.cardRadius,
   },
   sameFieldCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 18,
-    borderRadius: 16,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: colors.gray100,
+    paddingTop: list.cardGap,
   },
   editRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray100,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   editLabel: {
-    fontSize: 16,
+    ...typography.callout,
     color: colors.textPrimary,
-    fontWeight: '500',
+  },
+  editValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   editValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.primary,
+    ...typography.value,
+    color: colors.textSecondary,
+  },
+  chevron: {
+    ...typography.title3,
+    color: colors.gray300,
+    marginLeft: 8,
+    fontWeight: '400',
   },
   divider: {
-    height: 1,
-    backgroundColor: colors.gray200,
-    marginVertical: 14,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.separator,
+    marginVertical: 12,
   },
   choiceLabel: {
-    fontSize: 14,
+    ...typography.footnote,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 8,
@@ -806,91 +700,56 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: colors.gray300,
-    backgroundColor: colors.white,
+    borderRadius: 16,
+    backgroundColor: colors.fill,
   },
   chipSelected: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   chipDanger: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
+    backgroundColor: colors.errorFill,
   },
   chipText: {
-    fontSize: 14,
-    color: colors.textPrimary,
+    ...typography.subhead,
+    color: colors.primary,
     fontWeight: '500',
   },
   chipTextSelected: {
     color: colors.white,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   toggleLabel: {
-    fontSize: 16,
+    ...typography.callout,
     color: colors.textPrimary,
-    fontWeight: '500',
     flex: 1,
-  },
-  toggleChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 64,
-    alignItems: 'center',
-  },
-  toggleOn: {
-    backgroundColor: colors.primary,
-  },
-  toggleOff: {
-    backgroundColor: colors.gray200,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  toggleTextOn: {
-    color: colors.white,
-  },
-  toggleTextOff: {
-    color: colors.textSecondary,
+    paddingRight: 12,
   },
   hintText: {
-    fontSize: 13,
+    ...typography.footnote,
     color: colors.textSecondary,
     marginTop: 10,
   },
   resultCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: colors.gray100,
-    marginBottom: 16,
+    backgroundColor: colors.secondarySystemGroupedBackground,
+    padding: list.xl,
+    borderRadius: list.cardRadius,
+    marginBottom: list.cardGap,
   },
   resultHeader: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   resultTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.title2,
     color: colors.textPrimary,
   },
   resultConditions: {
-    fontSize: 14,
+    ...typography.subhead,
     color: colors.textSecondary,
     marginTop: 4,
   },
@@ -898,160 +757,122 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 4,
   },
   resultLabel: {
-    fontSize: 15,
+    ...typography.subhead,
     color: colors.textSecondary,
-    fontWeight: '500',
     flex: 1,
   },
   resultValue: {
-    fontSize: 17,
-    fontWeight: '600',
+    ...typography.value,
     color: colors.textPrimary,
   },
   resultValueBold: {
-    fontSize: 19,
-    fontWeight: '800',
+    ...typography.value,
     color: colors.primary,
   },
   statusBadge: {
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    borderWidth: 2,
   },
   statusSuccess: {
-    backgroundColor: '#E8F8F5',
-    borderColor: colors.success,
+    backgroundColor: colors.successFill,
   },
   statusWarning: {
-    backgroundColor: '#FFF3E0',
-    borderColor: colors.warning,
+    backgroundColor: colors.warningFill,
   },
   statusError: {
-    backgroundColor: '#FCE8E8',
-    borderColor: colors.error,
+    backgroundColor: colors.errorFill,
   },
   statusText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    ...typography.headline,
   },
   notesBox: {
-    backgroundColor: colors.gray50,
+    backgroundColor: colors.fill,
     padding: 14,
     borderRadius: 10,
     marginTop: 14,
   },
   noteText: {
-    fontSize: 13,
+    ...typography.footnote,
     color: colors.textSecondary,
     lineHeight: 19,
   },
   warningBox: {
-    backgroundColor: '#FFF3E0',
-    padding: 18,
-    borderRadius: 12,
-    marginTop: 24,
-    marginHorizontal: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
+    backgroundColor: colors.errorFill,
+    padding: list.xl,
+    borderRadius: list.cardRadius,
+    marginTop: list.cardGap,
+    marginHorizontal: list.insetHorizontal,
   },
   warningText: {
-    fontSize: 15,
-    color: '#E65100',
-    fontWeight: '700',
-    lineHeight: 22,
+    ...typography.subhead,
+    color: colors.error,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   infoCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.gray100,
+    backgroundColor: colors.secondarySystemGroupedBackground,
+    padding: list.xl,
+    borderRadius: list.cardRadius,
   },
   infoTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 8,
-    marginTop: 4,
+    ...typography.footnote,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    marginTop: 8,
   },
   infoText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.footnote,
+    color: colors.textPrimary,
     lineHeight: 19,
     marginBottom: 4,
   },
   infoSource: {
-    fontSize: 12,
+    ...typography.caption1,
     color: colors.textLight,
     marginTop: 10,
     fontStyle: 'italic',
   },
-  bottomPadding: {
-    height: 50,
+  toolbarOuter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: list.insetHorizontal,
+    paddingTop: 8,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  toolbar: {
+    backgroundColor: colors.gray200,
+    borderRadius: 26,
+    padding: 4,
+  },
+  toolbarButton: {
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 22,
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 25,
-    width: '80%',
-    maxWidth: 300,
-  },
-  modalTitle: {
-    fontSize: 18,
+  toolbarButtonText: {
+    ...typography.subhead,
     fontWeight: '600',
-    marginBottom: 15,
+    color: colors.primary,
     textAlign: 'center',
-    color: '#333',
   },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 24,
+  headerInfoButton: {
+    ...typography.title3,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
+    color: colors.primary,
   },
-  modalHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: '#E0E0E0',
-  },
-  modalButtonSave: {
-    backgroundColor: '#007AFF',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  modalButtonTextSave: {
-    color: '#fff',
+  bottomPadding: {
+    height: 110,
   },
 });

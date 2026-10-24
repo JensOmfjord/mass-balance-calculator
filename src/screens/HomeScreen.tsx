@@ -1,169 +1,152 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { PressableScale } from '../components/PressableScale';
 import { aircraftRegistry } from '../data/aircraftRegistry';
 import { AircraftConfig } from '../models/Aircraft';
-import { colors, gradients } from '../theme/colors';
+import { RootStackParamList } from '../navigation/types';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+import { list } from '../theme/spacing';
+import { hapticTap } from '../utils/haptics';
 
-interface HomeScreenProps {
-  onSelectAircraft: (aircraft: AircraftConfig) => void;
-  onViewDetails: (aircraft: AircraftConfig) => void;
-  onOpenPerformance?: (aircraft: AircraftConfig) => void;
-}
+type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectAircraft, onViewDetails, onOpenPerformance }) => {
-  const handleSelectAircraft = (aircraft: AircraftConfig) => {
-    onSelectAircraft(aircraft);
-  };
-
-  const handleViewDetails = (aircraft: AircraftConfig, event: any) => {
-    event.stopPropagation();
-    onViewDetails(aircraft);
-  };
-
-  const handleOpenPerformance = (aircraft: AircraftConfig, event: any) => {
-    event.stopPropagation();
-    if (onOpenPerformance) {
-      onOpenPerformance(aircraft);
-    } else {
-      onSelectAircraft(aircraft);
-    }
-  };
+export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const renderAircraft = ({ item }: { item: AircraftConfig }) => (
+    <View style={styles.card}>
+      <PressableScale
+        onPress={() => {
+          hapticTap();
+          navigation.navigate('Calculator', { aircraft: item });
+        }}
+        style={styles.row}
+      >
+        <View style={styles.rowMain}>
+          <Text style={styles.registration}>{item.registration}</Text>
+          <Text style={styles.model}>{item.model}</Text>
+          <Text style={styles.details}>
+            Empty Weight: {item.emptyWeight} kg • Max TO: {item.maxTakeoffWeight} kg
+          </Text>
+        </View>
+        <View style={styles.rowActions}>
+          <PressableScale
+            style={styles.actionButton}
+            onPress={() => {
+              hapticTap();
+              navigation.navigate('Performance', { aircraft: item });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Performance for ${item.registration}`}
+          >
+            <Text style={styles.actionButtonText}>Perf</Text>
+          </PressableScale>
+          <PressableScale
+            style={styles.infoButton}
+            onPress={() => {
+              hapticTap();
+              navigation.navigate('Details', { aircraft: item });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Details for ${item.registration}`}
+          >
+            <Text style={styles.infoButtonText}>i</Text>
+          </PressableScale>
+        </View>
+      </PressableScale>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={gradients.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <Text style={styles.title}>Mass & Balance Calculator</Text>
-        <Text style={styles.subtitle}>Select Aircraft</Text>
-      </LinearGradient>
-
-      <FlatList
-        data={aircraftRegistry}
-        keyExtractor={(item) => item.registration}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.aircraftCard}
-            onPress={() => handleSelectAircraft(item)}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardMain}>
-                <Text style={styles.registration}>{item.registration}</Text>
-                <Text style={styles.model}>{item.model}</Text>
-                <Text style={styles.details}>
-                  Empty Weight: {item.emptyWeight} kg • Max TO: {item.maxTakeoffWeight} kg
-                </Text>
-              </View>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={styles.perfButton}
-                  onPress={(e) => handleOpenPerformance(item, e)}
-                >
-                  <Text style={styles.perfButtonText}>Perf</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.infoButton}
-                  onPress={(e) => handleViewDetails(item, e)}
-                >
-                  <Text style={styles.infoButtonText}>ℹ️</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+    <FlatList
+      style={styles.container}
+      data={aircraftRegistry}
+      keyExtractor={item => item.registration}
+      renderItem={renderAircraft}
+      ListHeaderComponent={<Text style={styles.sectionHeader}>Select Aircraft</Text>}
+      contentContainerStyle={styles.listContent}
+      contentInsetAdjustmentBehavior="automatic"
+    />
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.white,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: colors.white,
-    opacity: 0.9,
+    backgroundColor: colors.systemGroupedBackground,
   },
   listContent: {
-    padding: 20,
+    paddingBottom: list.bottomPadding,
   },
-  aircraftCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 20,
-    marginBottom: 12,
-    borderRadius: 12,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+  sectionHeader: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: list.insetHorizontal + list.cardGap,
+    paddingVertical: 8,
   },
-  cardHeader: {
+  card: {
+    backgroundColor: colors.secondarySystemGroupedBackground,
+    borderRadius: list.cardRadius,
+    marginHorizontal: list.insetHorizontal,
+    marginBottom: list.cardGap,
+    overflow: 'hidden',
+  },
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: list.xl,
   },
-  cardMain: {
+  rowMain: {
     flex: 1,
   },
   registration: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...typography.title3,
     color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
   model: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textPrimary,
-    marginTop: 4,
+    marginTop: 2,
   },
   details: {
-    fontSize: 14,
+    ...typography.footnote,
     color: colors.textSecondary,
-    marginTop: 8,
+    marginTop: 6,
   },
-  infoButton: {
-    padding: 8,
-    marginLeft: 12,
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
-  },
-  infoButtonText: {
-    fontSize: 24,
-  },
-  cardActions: {
+  rowActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  perfButton: {
-    paddingVertical: 10,
+  actionButton: {
+    height: 32,
     paddingHorizontal: 14,
-    marginLeft: 12,
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  perfButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
+  actionButtonText: {
+    ...typography.footnote,
+    fontWeight: '600',
     color: colors.white,
+  },
+  infoButton: {
+    marginLeft: 10,
+    width: 32,
+    height: 32,
+    backgroundColor: colors.fill,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoButtonText: {
+    ...typography.title3,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: -2,
   },
 });
