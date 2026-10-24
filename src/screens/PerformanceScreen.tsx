@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+  GestureResponderEvent,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,7 +12,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '../components/PressableScale';
-import { ValueEditSheet } from '../components/ValueEditSheet';
+import { ValueEditSheet, EditAnchor } from '../components/ValueEditSheet';
 import { AircraftConfig } from '../models/Aircraft';
 import {
   FieldConditions,
@@ -31,7 +32,8 @@ import { loadAircraftConfig } from '../services/aircraftStorage';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { list } from '../theme/spacing';
+import { layout, list } from '../theme/spacing';
+import { useDeviceType } from '../utils/useDeviceType';
 import { hapticTap, hapticSuccess, hapticWarning, hapticError } from '../utils/haptics';
 type PerformanceScreenProps = NativeStackScreenProps<RootStackParamList, 'Performance'>;
 
@@ -65,6 +67,7 @@ const metersToFeet = (m: number): number => m * 3.28084;
 export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) => {
   const aircraft: AircraftConfig = route.params.aircraft;
   const insets = useSafeAreaInsets();
+  const { isTablet, isWide } = useDeviceType();
 
   const [sameField, setSameField] = useState(true);
   const [departure, setDeparture] = useState<FieldConditions>(createDefaultFieldConditions());
@@ -73,6 +76,7 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
   const [lwKg, setLwKg] = useState(0);
   const [distanceUnit, setDistanceUnit] = useState<'metric' | 'imperial'>('metric');
   const [editing, setEditing] = useState<EditingTarget | null>(null);
+  const [editAnchor, setEditAnchor] = useState<EditAnchor | null>(null);
   const [tempValue, setTempValue] = useState('');
   const loadedRef = useRef(false);
 
@@ -181,6 +185,15 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
     setTempValue(value.toString());
   };
 
+  // Capture the pressed row's position so the editor presents as an
+  // anchored popover on iPad.
+  const openEditorAt = (event: GestureResponderEvent, target: EditingTarget) => {
+    event.currentTarget.measureInWindow((px, py, pw, ph) => {
+      setEditAnchor({ x: px + pw / 2, y: py + ph });
+      openEditor(target);
+    });
+  };
+
   const saveEditing = () => {
     if (editing) {
       const value = parseFloat(tempValue);
@@ -262,7 +275,7 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
   ) => (
     <PressableScale
       style={styles.editRow}
-      onPress={() => openEditor(target)}
+      onPress={event => openEditorAt(event, target)}
       accessibilityRole="button"
       accessibilityLabel={`Edit ${label}`}
     >
@@ -489,13 +502,85 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
   const hasPerformance = !!aircraft.performance;
   const perf = aircraft.performance;
 
+  // Layout sections — composed as a single column (phones / narrow windows)
+  // or two columns (wide tablets).
+  const weightsSection = (
+    <>
+      <Text style={styles.sectionHeader}>Weights</Text>
+      <View style={styles.section}>
+        <View style={styles.inputCard}>
+          {renderEditRow('Takeoff Weight', `${towKg.toFixed(0)} kg`, {
+            scope: 'weights',
+            prop: 'tow',
+            label: 'Takeoff Weight',
+            unit: 'kg',
+            min: 0,
+            max: aircraft.maxTakeoffWeight,
+          })}
+
+          {renderEditRow('Landing Weight', `${lwKg.toFixed(0)} kg`, {
+            scope: 'weights',
+            prop: 'lw',
+            label: 'Landing Weight',
+            unit: 'kg',
+            min: 0,
+            max: aircraft.maxLandingWeight || aircraft.maxTakeoffWeight,
+          })}
+
+          <Text style={styles.hintText}>Defaults from Weight & Balance — tap to adjust</Text>
+        </View>
+      </View>
+    </>
+  );
+
+  const resultsSection = hasPerformance && takeoffResult ? (
+    <>
+      <Text style={styles.sectionHeader}>Results</Text>
+      <View style={isWide ? [styles.section, styles.columns, styles.resultsRow] : styles.section}>
+        <View style={isWide ? styles.resultColumn : undefined}>
+          {renderResultCard(takeoffResult, 'Take-off', true)}
+        </View>
+        {landingResult && (
+          <View style={isWide ? styles.resultColumn : undefined}>
+            {renderResultCard(landingResult, 'Landing', false)}
+          </View>
+        )}
+      </View>
+    </>
+  ) : null;
+
+  const afmSection =
+    hasPerformance && perf ? (
+      <>
+        <Text style={styles.sectionHeader}>AFM Reference</Text>
+        <View style={styles.section}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Take-off conditions</Text>
+            <Text style={styles.infoText}>{perf.takeoff.conditions}</Text>
+            <Text style={styles.infoTitle}>Landing conditions</Text>
+            <Text style={styles.infoText}>{perf.landing.conditions}</Text>
+            <Text style={styles.infoTitle}>Cautions</Text>
+            {[...perf.takeoff.cautions, ...perf.landing.cautions].map((caution, index) => (
+              <Text key={index} style={styles.infoText}>
+                • {caution}
+              </Text>
+            ))}
+            <Text style={styles.infoSource}>{perf.source}</Text>
+          </View>
+        </View>
+      </>
+    ) : null;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-        {!hasPerformance && (
+      <ScrollView
+        style={styles.scrollView}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[isTablet && styles.scrollContentTablet]}
+      >        {!hasPerformance && (
           <View style={styles.warningBox}>
             <Text style={styles.warningText}>
               No performance data available for this aircraft model
@@ -518,63 +603,38 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
           </View>
         </View>
 
-        {renderFieldSection('departure', 'Departure', 'Runway Length (TORA)', true)}
-
-        {!sameField && renderFieldSection('arrival', 'Arrival', 'Runway Length (LDA)', false)}
-
-        <Text style={styles.sectionHeader}>Weights</Text>
-        <View style={styles.section}>
-          <View style={styles.inputCard}>
-            {renderEditRow('Takeoff Weight', `${towKg.toFixed(0)} kg`, {
-              scope: 'weights',
-              prop: 'tow',
-              label: 'Takeoff Weight',
-              unit: 'kg',
-              min: 0,
-              max: aircraft.maxTakeoffWeight,
-            })}
-
-            {renderEditRow('Landing Weight', `${lwKg.toFixed(0)} kg`, {
-              scope: 'weights',
-              prop: 'lw',
-              label: 'Landing Weight',
-              unit: 'kg',
-              min: 0,
-              max: aircraft.maxLandingWeight || aircraft.maxTakeoffWeight,
-            })}
-
-            <Text style={styles.hintText}>Defaults from Weight & Balance — tap to adjust</Text>
-          </View>
-        </View>
-
-        {hasPerformance && takeoffResult && (
+        {isWide ? (
           <>
-            <Text style={styles.sectionHeader}>Results</Text>
-            <View style={styles.section}>
-              {renderResultCard(takeoffResult, 'Take-off', true)}
-              {landingResult && renderResultCard(landingResult, 'Landing', false)}
-            </View>
-          </>
-        )}
-
-        {hasPerformance && perf && (
-          <>
-            <Text style={styles.sectionHeader}>AFM Reference</Text>
-            <View style={styles.section}>
-              <View style={styles.infoCard}>
-                <Text style={styles.infoTitle}>Take-off conditions</Text>
-                <Text style={styles.infoText}>{perf.takeoff.conditions}</Text>
-                <Text style={styles.infoTitle}>Landing conditions</Text>
-                <Text style={styles.infoText}>{perf.landing.conditions}</Text>
-                <Text style={styles.infoTitle}>Cautions</Text>
-                {[...perf.takeoff.cautions, ...perf.landing.cautions].map((caution, index) => (
-                  <Text key={index} style={styles.infoText}>
-                    • {caution}
-                  </Text>
-                ))}
-                <Text style={styles.infoSource}>{perf.source}</Text>
+            {sameField ? (
+              renderFieldSection('departure', 'Departure', 'Runway Length (TORA)', true)
+            ) : (
+              <View style={styles.columns}>
+                <View style={styles.column}>
+                  {renderFieldSection('departure', 'Departure', 'Runway Length (TORA)', true)}
+                </View>
+                <View style={styles.column}>
+                  {renderFieldSection('arrival', 'Arrival', 'Runway Length (LDA)', false)}
+                </View>
               </View>
-            </View>
+            )}
+
+            {weightsSection}
+
+            {resultsSection}
+
+            {afmSection}
+          </>
+        ) : (
+          <>
+            {renderFieldSection('departure', 'Departure', 'Runway Length (TORA)', true)}
+
+            {!sameField && renderFieldSection('arrival', 'Arrival', 'Runway Length (LDA)', false)}
+
+            {weightsSection}
+
+            {resultsSection}
+
+            {afmSection}
           </>
         )}
 
@@ -606,6 +666,7 @@ export const PerformanceScreen: React.FC<PerformanceScreenProps> = ({ route }) =
         value={tempValue}
         onChangeText={setTempValue}
         keyboardType="numbers-and-punctuation"
+        anchor={editing ? editAnchor : null}
         hint={
           editing
             ? `${editing.unit}${
@@ -630,6 +691,24 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContentTablet: {
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  columns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  column: {
+    flex: 1,
+  },
+  resultColumn: {
+    width: '48.5%',
+    overflow: 'hidden',
+  },
+  resultsRow: {
+    justifyContent: 'space-between',
   },
   section: {
     paddingHorizontal: list.insetHorizontal,
@@ -852,6 +931,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray200,
     borderRadius: 26,
     padding: 4,
+    maxWidth: layout.toolbarMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
   toolbarButton: {
     minHeight: 44,
