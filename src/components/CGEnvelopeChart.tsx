@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
-import { LayoutAnimation, Platform, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Polygon, Circle, Text as SvgText, Defs, RadialGradient, Stop, Rect, ClipPath } from 'react-native-svg';
 import { AircraftConfig } from '../models/Aircraft';
 import { inchesToMeters } from '../utils/units';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-
-// Enable layout animations on Android
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface CGEnvelopeChartProps {
   aircraft: AircraftConfig;
@@ -24,6 +16,14 @@ interface CGEnvelopeChartProps {
   landingIsWithinEnvelope?: boolean;
 }
 
+/** Reference design size; height scales with measured width to keep the aspect. */
+const BASE_CHART_WIDTH = 350;
+const BASE_CHART_HEIGHT = 240;
+/** Cap so the plot area never gets unwieldy on very large tablets. */
+const MAX_CHART_WIDTH = 800;
+/** Horizontal padding of the chart container (see styles.container). */
+const CONTAINER_PADDING = 15;
+
 export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   aircraft,
   currentWeight,
@@ -33,18 +33,21 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   landingCG,
   landingIsWithinEnvelope,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
 
-  const toggleCollapse = () => {
-    LayoutAnimation.configureNext(
-      LayoutAnimation.create(200, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity)
-    );
-    setIsCollapsed(!isCollapsed);
+  const handleLayout = (event: { nativeEvent: { layout: { width: number } } }) => {
+    const w = event.nativeEvent.layout.width;
+    if (Math.abs(w - measuredWidth) > 1) {
+      setMeasuredWidth(w);
+    }
   };
 
-  // Chart dimensions
-  const chartWidth = 350;
-  const chartHeight = 240;
+  // Chart dimensions — width measured from the container (falls back to the
+  // reference width before the first layout pass), capped on tablets.
+  const availableWidth =
+    measuredWidth > 0 ? measuredWidth - 2 * CONTAINER_PADDING : BASE_CHART_WIDTH;
+  const chartWidth = Math.min(availableWidth, MAX_CHART_WIDTH);
+  const chartHeight = (chartWidth / BASE_CHART_WIDTH) * BASE_CHART_HEIGHT;
   const paddingLeft = 45;
   const paddingRight = 10;
   const paddingTop = 20;
@@ -162,21 +165,12 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.header}
-        onPress={toggleCollapse}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: !isCollapsed }}
-      >
+    <View style={styles.container} onLayout={handleLayout}>
+      <View style={styles.header}>
         <Text style={styles.title}>CG Envelope</Text>
-        <Text style={styles.collapseIcon}>{isCollapsed ? 'Show' : 'Hide'}</Text>
-      </TouchableOpacity>
+      </View>
 
-      {!isCollapsed && (
-        <>
-          <Svg width={chartWidth} height={chartHeight}>
+      <Svg width={chartWidth} height={chartHeight}>
         <Defs>
           <RadialGradient id="takeoffGlow" cx="50%" cy="50%">
             <Stop offset="0%" stopColor={isWithinEnvelope ? colors.darkTeal : colors.error} stopOpacity="0.6" />
@@ -418,8 +412,6 @@ export const CGEnvelopeChart: React.FC<CGEnvelopeChartProps> = ({
               </View>
             )}
           </View>
-        </>
-      )}
     </View>
   );
 };
@@ -447,12 +439,6 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headline,
     color: colors.textPrimary,
-  },
-  collapseIcon: {
-    ...typography.footnote,
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: 8,
   },
   legend: {
     flexDirection: 'row',

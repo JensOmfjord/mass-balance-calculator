@@ -7,14 +7,17 @@ import { AircraftConfig } from '../models/Aircraft';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { list } from '../theme/spacing';
+import { layout, list } from '../theme/spacing';
+import { useDeviceType } from '../utils/useDeviceType';
 import { hapticTap } from '../utils/haptics';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const { isTablet } = useDeviceType();
+
   const renderAircraft = ({ item }: { item: AircraftConfig }) => (
-    <View style={styles.card}>
+    <View style={[styles.card, isTablet && styles.cardGrid]}>
       <PressableScale
         onPress={() => {
           hapticTap();
@@ -59,12 +62,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <FlatList
+      key={isTablet ? 'grid' : 'list'}
       style={styles.container}
       data={aircraftRegistry}
       keyExtractor={item => item.registration}
       renderItem={renderAircraft}
+      numColumns={isTablet ? 2 : 1}
+      columnWrapperStyle={isTablet ? styles.gridRow : undefined}
       ListHeaderComponent={<Text style={styles.sectionHeader}>Select Aircraft</Text>}
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={[styles.listContent, isTablet && styles.listContentTablet]}
       contentInsetAdjustmentBehavior="automatic"
     />
   );
@@ -77,6 +83,19 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: list.bottomPadding,
+  },
+  listContentTablet: {
+    maxWidth: layout.contentMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  gridRow: {
+    paddingHorizontal: list.insetHorizontal,
+    gap: list.cardGap,
+  },
+  cardGrid: {
+    flex: 1,
+    marginHorizontal: 0,
   },
   sectionHeader: {
     ...typography.footnote,

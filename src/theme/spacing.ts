@@ -43,3 +43,15 @@ export const list = {
   /** 35 — bottom content padding */
   bottomPadding: 35,
 } as const;
+
+/**
+ * Adaptive layout tokens — iPad / tablet breakpoints and maxima.
+ * Phones use the plain single-column geometry above; tablets center their
+ * content and switch to two-column layouts once the window is wide enough.
+ */
+export const layout = {
+  /** Max width of centered content on tablets (portrait iPad). */
+  contentMaxWidth: 720,
+  /** Max width of the floating bottom toolbar on tablets. */
+  toolbarMaxWidth: 520,
+} as const;

@@ -6,12 +6,14 @@ import { RootStackParamList } from '../navigation/types';
 import { inchesToMeters } from '../utils/units';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { list } from '../theme/spacing';
+import { list, layout } from '../theme/spacing';
+import { useDeviceType } from '../utils/useDeviceType';
 
 type AircraftDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
 export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ route }) => {
   const aircraft: AircraftConfig = route.params.aircraft;
+  const { isTablet } = useDeviceType();
 
   const renderRow = (label: string, value: React.ReactNode, key?: string) => (
     <View style={styles.detailRow} key={key || label}>
@@ -23,7 +25,7 @@ export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ ro
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, isTablet && styles.contentContainerTablet]}
       contentInsetAdjustmentBehavior="automatic"
     >
       {/* Basic Specifications */}
@@ -110,6 +112,11 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingTop: list.cardGap,
     paddingBottom: list.bottomPadding,
+  },
+  contentContainerTablet: {
+    maxWidth: layout.contentMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
   sectionHeader: {
     ...typography.footnote,

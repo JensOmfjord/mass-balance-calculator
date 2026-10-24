@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  GestureResponderEvent,
   LayoutAnimation,
   Platform,
   ScrollView,
@@ -14,7 +15,7 @@ import Slider from '@react-native-community/slider';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CGEnvelopeChart } from '../components/CGEnvelopeChart';
 import { PressableScale } from '../components/PressableScale';
-import { ValueEditSheet } from '../components/ValueEditSheet';
+import { ValueEditSheet, EditAnchor } from '../components/ValueEditSheet';
 import { AircraftConfig } from '../models/Aircraft';
 import { MassBalanceResult } from '../models/MassBalanceResult';
 import { RootStackParamList } from '../navigation/types';
@@ -22,7 +23,8 @@ import { saveAircraftConfig, loadAircraftConfig } from '../services/aircraftStor
 import { calculateMassBalance } from '../services/massBalanceCalculator';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { list } from '../theme/spacing';
+import { layout, list } from '../theme/spacing';
+import { useDeviceType } from '../utils/useDeviceType';
 import { inchesToMeters, kgToLbs, litersToGallons, metersToInches } from '../utils/units';
 import { hapticTap, hapticSuccess, hapticError } from '../utils/haptics';
 
@@ -44,6 +46,8 @@ type EditTarget =
 export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navigation }) => {
   const aircraft: AircraftConfig = route.params.aircraft;
   const insets = useSafeAreaInsets();
+  const { isTablet, isWide } = useDeviceType();
+  const portraitTablet = isTablet && !isWide;
 
   // "i" button in the nav bar → aircraft details page
   React.useLayoutEffect(() => {
@@ -66,11 +70,13 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
   }, [aircraft, navigation]);
 
   const [stationWeights, setStationWeights] = useState<Record<string, number>>({});
+  const [chartSlotHeight, setChartSlotHeight] = useState(0);
   const [fuelVolume, setFuelVolume] = useState<number>(0);
   const [fuelBurn, setFuelBurn] = useState<number>(0);
   const [result, setResult] = useState<MassBalanceResult | null>(null);
   const [landingResult, setLandingResult] = useState<MassBalanceResult | null>(null);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [editAnchor, setEditAnchor] = useState<EditAnchor | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
 
@@ -173,6 +179,15 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
     setTempValue(currentValue.toString());
   };
 
+  // Capture the pressed chip's position so the editor presents as an
+  // anchored popover on iPad.
+  const openEditorAt = (event: GestureResponderEvent, target: EditTarget, currentValue: number) => {
+    event.currentTarget.measureInWindow((px, py, pw, ph) => {
+      setEditAnchor({ x: px + pw / 2, y: py + ph });
+      openEditor(target, currentValue);
+    });
+  };
+
   const saveEditValue = () => {
     if (!editTarget) return;
     const value = parseFloat(tempValue) || 0;
@@ -271,7 +286,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
     const sliderColor = getSliderColor(value, max);
 
     return (
-      <View style={styles.inputCard}>
+      <View style={portraitTablet ? [styles.inputCard, styles.inputCardGrid] : styles.inputCard}>
         <View style={styles.labelContainer}>
           <Text style={styles.inputLabelText}>{label}</Text>
           <Text style={styles.inputLabelSubtext}>{subtext}</Text>
@@ -292,7 +307,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
           />
           <PressableScale
             style={[styles.valueDisplay, { opacity: disabled ? 0.5 : 1 }]}
-            onPress={disabled ? undefined : () => openEditor(editSheet, value)}
+            onPress={disabled ? undefined : event => openEditorAt(event, editSheet, value)}
             accessibilityRole="button"
             accessibilityLabel={`Edit ${label}`}
           >
@@ -304,116 +319,183 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
     );
   };
 
+  // Layout sections — composed as a single column (phones / narrow windows)
+  // or two columns (wide tablets).
+  const chartSection = (
+    <CGEnvelopeChart
+      aircraft={aircraft}
+      currentWeight={result?.totalWeight || 0}
+      currentCG={result?.cgPosition || 0}
+      isWithinEnvelope={result ? result.isWithinEnvelope : true}
+      landingWeight={landingResult?.totalWeight}
+      landingCG={landingResult?.cgPosition}
+      landingIsWithinEnvelope={landingResult ? landingResult.isWithinEnvelope : true}
+    />
+  );
+
+  const weightBalanceSection = (
+    <>
+      {/* Station Inputs */}
+      <Text style={styles.sectionTitle}>Weight & Balance</Text>
+      <View style={portraitTablet ? [styles.section, styles.gridSection] : styles.section}>
+        {aircraft.stations.map(station => {
+          const value = stationWeights[station.id] || 0;
+          return renderSliderRow(
+            station.name,
+            `Max: ${displayWeight(station.maxWeight, 0)} ${weightUnit}`,
+            value,
+            station.maxWeight,
+            displayWeight(value, 0),
+            weightUnit,
+            val => handleSliderChange(station.id, val),
+            {
+              kind: 'station',
+              stationId: station.id,
+              title: station.name,
+              max: station.maxWeight,
+            }
+          );
+        })}
+
+        {renderSliderRow(
+          'Fuel',
+          `Max: ${displayVolume(aircraft.fuelCapacity, 0)} ${volumeUnit} (${displayWeight(aircraft.fuelCapacity * aircraft.fuelDensity)} ${weightUnit})`,
+          fuelVolume,
+          aircraft.fuelCapacity,
+          displayVolume(fuelVolume, 0),
+          volumeUnit,
+          handleFuelSliderChange,
+          { kind: 'fuel', title: 'Fuel Volume', max: aircraft.fuelCapacity }
+        )}
+      </View>
+    </>
+  );
+
+  const fuelBurnSection = (
+    <>
+      {/* Fuel Burn */}
+      <Text style={styles.sectionTitle}>Estimated Fuel Burn</Text>
+      <View style={portraitTablet ? [styles.section, styles.gridSection] : styles.section}>
+        {renderSliderRow(
+          'Fuel to Burn',
+          `Max: ${fuelVolume > 0 ? displayVolume(fuelVolume, 0) : 0} ${volumeUnit} (${fuelVolume > 0 ? displayWeight(fuelVolume * aircraft.fuelDensity) : '0.0'} ${weightUnit})`,
+          fuelBurn,
+          fuelVolume > 0 ? fuelVolume : 100,
+          displayVolume(fuelBurn, 0),
+          volumeUnit,
+          handleFuelBurnSliderChange,
+          { kind: 'fuelBurn', title: 'Fuel Burn', max: fuelVolume },
+          fuelVolume === 0
+        )}
+      </View>
+    </>
+  );
+
+  // Results render even before any values are entered — placeholders plus
+  // OK badges in the empty state, live numbers once inputs exist.
+  const dash = '—';
+  const takeoffResultSection = (
+    <>
+      <Text style={styles.sectionTitle}>Takeoff Configuration</Text>
+      <View style={styles.section}>
+        {renderResultCard(
+          [
+            ['Total Weight', result ? `${displayWeight(result.totalWeight)} ${weightUnit}` : dash],
+            ['CG Position', result ? `${displayDistance(inchesToMeters(result.cgPosition))} ${distanceUnit}` : dash],
+            ['Max Takeoff Weight', `${displayWeight(aircraft.maxTakeoffWeight, 0)} ${weightUnit}`],
+          ],
+          [
+            [result ? !result.exceedsMaxWeight : true, 'Weight OK', 'Overweight'],
+            [result ? result.isWithinEnvelope : true, 'CG OK', 'CG Out of Limits'],
+          ],
+          'Aircraft is not safe to fly in this configuration'
+        )}
+      </View>
+    </>
+  );
+
+  const landingResultSection = (
+    <>
+      <Text style={styles.sectionTitle}>Landing Configuration</Text>
+      <View style={styles.section}>
+        {renderResultCard(
+          [
+            ['Fuel Burned', result ? `${displayVolume(fuelBurn, 0)} ${volumeUnit} (${displayWeight(fuelBurn * aircraft.fuelDensity)} ${weightUnit})` : dash],
+            ['Landing Weight', landingResult ? `${displayWeight(landingResult.totalWeight)} ${weightUnit}` : dash],
+            ['Max Landing Weight', `${displayWeight(aircraft.maxLandingWeight || aircraft.maxTakeoffWeight, 0)} ${weightUnit}`],
+            ['Landing CG', landingResult ? `${displayDistance(inchesToMeters(landingResult.cgPosition))} ${distanceUnit}` : dash],
+          ],
+          [
+            [
+              landingResult ? landingResult.totalWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight) : true,
+              'Weight OK',
+              'Overweight',
+            ],
+            [landingResult ? landingResult.isWithinEnvelope : true, 'CG OK', 'CG Out of Limits'],
+          ],
+          'Landing configuration is not safe'
+        )}
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]}
       >
-        {/* CG Envelope Chart */}
-        <CGEnvelopeChart
-          aircraft={aircraft}
-          currentWeight={result?.totalWeight || 0}
-          currentCG={result?.cgPosition || 0}
-          isWithinEnvelope={result ? result.isWithinEnvelope : true}
-          landingWeight={landingResult?.totalWeight}
-          landingCG={landingResult?.cgPosition}
-          landingIsWithinEnvelope={landingResult ? landingResult.isWithinEnvelope : true}
-        />
-
-        {/* Station Inputs */}
-        <Text style={styles.sectionTitle}>Weight & Balance</Text>
-        <View style={styles.section}>
-          {aircraft.stations.map(station => {
-            const value = stationWeights[station.id] || 0;
-            return renderSliderRow(
-              station.name,
-              `Max: ${displayWeight(station.maxWeight, 0)} ${weightUnit}`,
-              value,
-              station.maxWeight,
-              displayWeight(value, 0),
-              weightUnit,
-              val => handleSliderChange(station.id, val),
-              {
-                kind: 'station',
-                stationId: station.id,
-                title: station.name,
-                max: station.maxWeight,
-              }
-            );
-          })}
-
-          {renderSliderRow(
-            'Fuel',
-            `Max: ${displayVolume(aircraft.fuelCapacity, 0)} ${volumeUnit} (${displayWeight(aircraft.fuelCapacity * aircraft.fuelDensity)} ${weightUnit})`,
-            fuelVolume,
-            aircraft.fuelCapacity,
-            displayVolume(fuelVolume, 0),
-            volumeUnit,
-            handleFuelSliderChange,
-            { kind: 'fuel', title: 'Fuel Volume', max: aircraft.fuelCapacity }
-          )}
-        </View>
-
-        {/* Fuel Burn */}
-        <Text style={styles.sectionTitle}>Estimated Fuel Burn</Text>
-        <View style={styles.section}>
-          {renderSliderRow(
-            'Fuel to Burn',
-            `Max: ${fuelVolume > 0 ? displayVolume(fuelVolume, 0) : 0} ${volumeUnit} (${fuelVolume > 0 ? displayWeight(fuelVolume * aircraft.fuelDensity) : '0.0'} ${weightUnit})`,
-            fuelBurn,
-            fuelVolume > 0 ? fuelVolume : 100,
-            displayVolume(fuelBurn, 0),
-            volumeUnit,
-            handleFuelBurnSliderChange,
-            { kind: 'fuelBurn', title: 'Fuel Burn', max: fuelVolume },
-            fuelVolume === 0
-          )}
-        </View>
-
-        {/* Results */}
-        {result && (
+        {isWide ? (
           <>
-            <Text style={styles.sectionTitle}>Takeoff Configuration</Text>
-            <View style={styles.section}>
-              {renderResultCard(
-                [
-                  ['Total Weight', `${displayWeight(result.totalWeight)} ${weightUnit}`],
-                  ['CG Position', `${displayDistance(inchesToMeters(result.cgPosition))} ${distanceUnit}`],
-                  ['Max Takeoff Weight', `${displayWeight(aircraft.maxTakeoffWeight, 0)} ${weightUnit}`],
-                ],
-                [
-                  [!result.exceedsMaxWeight, 'Weight OK', 'Overweight'],
-                  [result.isWithinEnvelope, 'CG OK', 'CG Out of Limits'],
-                ],
-                'Aircraft is not safe to fly in this configuration'
-              )}
-
-              {/* Landing Configuration */}
-              {landingResult && (
-                <>
-                  <Text style={styles.sectionTitle}>Landing Configuration</Text>
-                  {renderResultCard(
-                    [
-                      ['Fuel Burned', `${displayVolume(fuelBurn, 0)} ${volumeUnit} (${displayWeight(fuelBurn * aircraft.fuelDensity)} ${weightUnit})`],
-                      ['Landing Weight', `${displayWeight(landingResult.totalWeight)} ${weightUnit}`],
-                      ['Max Landing Weight', `${displayWeight(aircraft.maxLandingWeight || aircraft.maxTakeoffWeight, 0)} ${weightUnit}`],
-                      ['Landing CG', `${displayDistance(inchesToMeters(landingResult.cgPosition))} ${distanceUnit}`],
-                    ],
-                    [
-                      [
-                        landingResult.totalWeight <= (aircraft.maxLandingWeight || aircraft.maxTakeoffWeight),
-                        'Weight OK',
-                        'Overweight',
-                      ],
-                      [landingResult.isWithinEnvelope, 'CG OK', 'CG Out of Limits'],
-                    ],
-                    'Landing configuration is not safe'
-                  )}
-                </>
-              )}
+            <View style={styles.columns}>
+              <View
+                style={styles.chartColumn}
+                onLayout={e => {
+                  const h = e.nativeEvent.layout.height;
+                  if (Math.abs(h - chartSlotHeight) > 1) {
+                    setChartSlotHeight(h);
+                  }
+                }}
+              >
+                {chartSection}
+              </View>
+              <ScrollView
+                style={[
+                  styles.column,
+                  styles.inputsColumn,
+                  chartSlotHeight > 0 && { height: chartSlotHeight },
+                ]}
+                keyboardShouldPersistTaps="handled"
+              >
+                {weightBalanceSection}
+                {fuelBurnSection}
+              </ScrollView>
             </View>
+            <View style={[styles.columns, styles.resultsRow]}>
+              <View style={styles.resultColumn}>{takeoffResultSection}</View>
+              <View style={styles.resultColumn}>{landingResultSection}</View>
+            </View>
+          </>
+        ) : portraitTablet ? (
+          <>
+            {/* Portrait tablet: full-width CG envelope, 2-column input grid,
+                results side by side. */}
+            {chartSection}
+            {weightBalanceSection}
+            {fuelBurnSection}
+            <View style={[styles.columns, styles.resultsRow]}>
+              <View style={styles.resultColumn}>{takeoffResultSection}</View>
+              <View style={styles.resultColumn}>{landingResultSection}</View>
+            </View>
+          </>
+        ) : (
+          <>
+            {chartSection}
+            {weightBalanceSection}
+            {fuelBurnSection}
+            {takeoffResultSection}
+            {landingResultSection}
           </>
         )}
       </ScrollView>
@@ -455,6 +537,7 @@ export const CalculatorScreen: React.FC<CalculatorScreenProps> = ({ route, navig
         value={tempValue}
         onChangeText={setTempValue}
         hint={editHint}
+        anchor={editTarget ? editAnchor : null}
         onCancel={() => {
           setEditTarget(null);
           setTempValue('');
@@ -513,6 +596,39 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 110,
+  },
+  scrollContentTablet: {
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  columns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  column: {
+    flex: 1,
+  },
+  resultColumn: {
+    width: '48.5%',
+    overflow: 'hidden',
+  },
+  resultsRow: {
+    justifyContent: 'space-between',
+  },
+  chartColumn: {
+    flex: 2,
+  },
+  inputsColumn: {
+    // Height is pinned to the CG envelope card via onLayout so both sides
+    // of the row match; the column scrolls internally when inputs overflow.
+  },
+  gridSection: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  inputCardGrid: {
+    width: '48.5%',
   },
   section: {
     paddingHorizontal: list.insetHorizontal,
@@ -639,6 +755,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray200,
     borderRadius: 26,
     padding: 4,
+    maxWidth: layout.toolbarMaxWidth,
+    width: '100%',
+    alignSelf: 'center',
   },
   toolbarButton: {
     minHeight: 44,
