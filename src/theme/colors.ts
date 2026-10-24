@@ -32,9 +32,21 @@ export const colors = {
   gray800: '#1F2937',
   gray900: '#111827',
 
-  // Background
-  background: '#F5F5F5',
+  // Background (iOS system groupeds)
+  background: '#F2F2F7',
+  systemGroupedBackground: '#F2F2F7',
+  secondarySystemGroupedBackground: '#FFFFFF',
   cardBackground: '#FFFFFF',
+
+  // iOS-style separators & fills
+  separator: 'rgba(60, 60, 67, 0.12)',
+  fill: 'rgba(120, 120, 128, 0.12)',
+  fillSecondary: 'rgba(120, 120, 128, 0.16)',
+
+  // Soft semantic fills (status pills)
+  successFill: 'rgba(75, 209, 160, 0.15)',
+  warningFill: 'rgba(245, 166, 35, 0.15)',
+  errorFill: 'rgba(155, 53, 53, 0.12)',
 
   // Text
   textPrimary: '#1F2937',

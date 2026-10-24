@@ -1,223 +1,131 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AircraftConfig } from '../models/Aircraft';
+import { RootStackParamList } from '../navigation/types';
 import { inchesToMeters } from '../utils/units';
-import { colors, gradients } from '../theme/colors';
+import { colors } from '../theme/colors';
+import { typography } from '../theme/typography';
+import { list } from '../theme/spacing';
 
-interface AircraftDetailsScreenProps {
-  aircraft: AircraftConfig;
-  onBack: () => void;
-}
+type AircraftDetailsScreenProps = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
-export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ aircraft, onBack }) => {
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={gradients.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.registration}>{aircraft.registration}</Text>
-          <Text style={styles.model}>{aircraft.model}</Text>
-        </View>
-        <View style={styles.placeholder} />
-      </LinearGradient>
+export const AircraftDetailsScreen: React.FC<AircraftDetailsScreenProps> = ({ route }) => {
+  const aircraft: AircraftConfig = route.params.aircraft;
 
-      <ScrollView style={styles.scrollView}>
-        {/* Basic Specifications */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Aircraft Specifications</Text>
-          <View style={styles.card}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Manufacturer:</Text>
-              <Text style={styles.detailValue}>{aircraft.manufacturer}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Model:</Text>
-              <Text style={styles.detailValue}>{aircraft.model}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Registration:</Text>
-              <Text style={styles.detailValue}>{aircraft.registration}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Empty Weight:</Text>
-              <Text style={styles.detailValue}>{aircraft.emptyWeight} kg</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Empty CG:</Text>
-              <Text style={styles.detailValue}>{aircraft.emptyCG.toFixed(2)} in ({inchesToMeters(aircraft.emptyCG).toFixed(3)} m)</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Max Takeoff Weight:</Text>
-              <Text style={styles.detailValue}>{aircraft.maxTakeoffWeight} kg</Text>
-            </View>
-            {aircraft.maxLandingWeight && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Max Landing Weight:</Text>
-                <Text style={styles.detailValue}>{aircraft.maxLandingWeight} kg</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Fuel Specifications */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fuel Specifications</Text>
-          <View style={styles.card}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Fuel Type:</Text>
-              <Text style={styles.detailValue}>
-                {aircraft.fuelType === 'jet-a' ? 'Jet-A' : aircraft.fuelType === 'ul91' ? 'UL91' : 'Avgas'}
-              </Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Fuel Capacity:</Text>
-              <Text style={styles.detailValue}>{aircraft.fuelCapacity} L</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Fuel Density:</Text>
-              <Text style={styles.detailValue}>{aircraft.fuelDensity.toFixed(2)} kg/L</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Fuel Arm:</Text>
-              <Text style={styles.detailValue}>{aircraft.fuelArm.toFixed(2)} in ({inchesToMeters(aircraft.fuelArm).toFixed(3)} m)</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Loading Stations */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Loading Stations</Text>
-          {aircraft.stations.map((station, index) => (
-            <View key={station.id} style={styles.card}>
-              <Text style={styles.stationName}>{station.name}</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Max Weight:</Text>
-                <Text style={styles.detailValue}>{station.maxWeight} kg</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Arm:</Text>
-                <Text style={styles.detailValue}>{station.arm.toFixed(2)} in ({inchesToMeters(station.arm).toFixed(3)} m)</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {/* CG Envelope */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CG Envelope Limits</Text>
-          <View style={styles.card}>
-            <View style={styles.tableHeader}>
-              <Text style={styles.tableHeaderText}>Weight (kg)</Text>
-              <Text style={styles.tableHeaderText}>CG Min (m)</Text>
-              <Text style={styles.tableHeaderText}>CG Max (m)</Text>
-            </View>
-            {aircraft.envelope.map((point, index) => (
-              <View key={index} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{point.weight}</Text>
-                <Text style={styles.tableCell}>
-                  {inchesToMeters(point.cgMin).toFixed(3)}{'\n'}
-                  <Text style={styles.tableCellSecondary}>({point.cgMin.toFixed(2)} in)</Text>
-                </Text>
-                <Text style={styles.tableCell}>
-                  {inchesToMeters(point.cgMax).toFixed(3)}{'\n'}
-                  <Text style={styles.tableCellSecondary}>({point.cgMax.toFixed(2)} in)</Text>
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+  const renderRow = (label: string, value: React.ReactNode, key?: string) => (
+    <View style={styles.detailRow} key={key || label}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
     </View>
+  );
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      {/* Basic Specifications */}
+      <Text style={styles.sectionHeader}>Aircraft Specifications</Text>
+      <View style={styles.card}>
+        {renderRow('Manufacturer', aircraft.manufacturer)}
+        {renderRow('Model', aircraft.model)}
+        {renderRow('Registration', aircraft.registration)}
+        <View style={styles.divider} />
+        {renderRow('Empty Weight', `${aircraft.emptyWeight} kg`)}
+        {renderRow(
+          'Empty CG',
+          `${aircraft.emptyCG.toFixed(2)} in (${inchesToMeters(aircraft.emptyCG).toFixed(3)} m)`
+        )}
+        {renderRow('Max Takeoff Weight', `${aircraft.maxTakeoffWeight} kg`)}
+        {aircraft.maxLandingWeight &&
+          renderRow('Max Landing Weight', `${aircraft.maxLandingWeight} kg`)}
+      </View>
+
+      {/* Fuel Specifications */}
+      <Text style={styles.sectionHeader}>Fuel Specifications</Text>
+      <View style={styles.card}>
+        {renderRow(
+          'Fuel Type',
+          aircraft.fuelType === 'jet-a' ? 'Jet-A' : aircraft.fuelType === 'ul91' ? 'UL91' : 'Avgas'
+        )}
+        {renderRow('Fuel Capacity', `${aircraft.fuelCapacity} L`)}
+        {renderRow('Fuel Density', `${aircraft.fuelDensity.toFixed(2)} kg/L`)}
+        {renderRow(
+          'Fuel Arm',
+          `${aircraft.fuelArm.toFixed(2)} in (${inchesToMeters(aircraft.fuelArm).toFixed(3)} m)`
+        )}
+      </View>
+
+      {/* Loading Stations */}
+      <Text style={styles.sectionHeader}>Loading Stations</Text>
+      {aircraft.stations.map((station, index) => (
+        <View style={styles.card} key={station.id}>
+          {renderRow('Station', station.name, `station-name-${index}`)}
+          {renderRow('Max Weight', `${station.maxWeight} kg`, `station-max-${index}`)}
+          {renderRow(
+            'Arm',
+            `${station.arm.toFixed(2)} in (${inchesToMeters(station.arm).toFixed(3)} m)`,
+            `station-arm-${index}`
+          )}
+        </View>
+      ))}
+
+      {/* CG Envelope */}
+      <Text style={styles.sectionHeader}>CG Envelope Limits</Text>
+      <View style={styles.card}>
+        <View style={styles.tableHeader}>
+          <Text style={styles.tableHeaderText}>Weight (kg)</Text>
+          <Text style={styles.tableHeaderText}>CG Min</Text>
+          <Text style={styles.tableHeaderText}>CG Max</Text>
+        </View>
+        {aircraft.envelope.map((point, index) => (
+          <View style={styles.tableRow} key={index}>
+            <Text style={styles.tableCell}>{point.weight}</Text>
+            <Text style={styles.tableCell}>
+              {inchesToMeters(point.cgMin).toFixed(3)}
+              {'\n'}
+              <Text style={styles.tableCellSecondary}>({point.cgMin.toFixed(2)} in)</Text>
+            </Text>
+            <Text style={styles.tableCell}>
+              {inchesToMeters(point.cgMax).toFixed(3)}
+              {'\n'}
+              <Text style={styles.tableCellSecondary}>({point.cgMax.toFixed(2)} in)</Text>
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.bottomPadding} />
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.systemGroupedBackground,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: 60,
-    paddingBottom: 20,
+  contentContainer: {
+    paddingTop: list.cardGap,
+    paddingBottom: list.bottomPadding,
   },
-  backButton: {
-    padding: 5,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: colors.white,
-    fontWeight: '600',
-  },
-  headerInfo: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  registration: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.white,
-  },
-  model: {
-    fontSize: 14,
-    color: colors.white,
-    opacity: 0.9,
-    marginTop: 2,
-  },
-  placeholder: {
-    width: 60,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 12,
+  sectionHeader: {
+    ...typography.footnote,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: list.insetHorizontal + list.cardGap,
+    paddingVertical: 8,
   },
   card: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  stationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 8,
+    backgroundColor: colors.secondarySystemGroupedBackground,
+    borderRadius: list.cardRadius,
+    marginHorizontal: list.insetHorizontal,
+    marginBottom: list.cardGap,
+    paddingHorizontal: list.xl,
+    paddingVertical: list.md,
   },
   detailRow: {
     flexDirection: 'row',
@@ -226,11 +134,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   detailLabel: {
-    fontSize: 15,
+    ...typography.callout,
     color: colors.textSecondary,
   },
   detailValue: {
-    fontSize: 15,
+    ...typography.callout,
     fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'right',
@@ -238,42 +146,42 @@ const styles = StyleSheet.create({
     marginLeft: 20,
   },
   divider: {
-    height: 1,
-    backgroundColor: colors.gray200,
-    marginVertical: 8,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.separator,
+    marginVertical: 4,
   },
   tableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   tableHeaderText: {
     flex: 1,
-    fontSize: 14,
+    ...typography.footnote,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   tableCell: {
     flex: 1,
-    fontSize: 14,
+    ...typography.footnote,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   tableCellSecondary: {
-    fontSize: 11,
+    ...typography.caption2,
     color: colors.textLight,
   },
   bottomPadding: {
-    height: 40,
+    height: list.bottomPadding,
   },
 });

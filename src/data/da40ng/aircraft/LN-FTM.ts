@@ -11,7 +11,7 @@ export const LN_FTM: AircraftConfig = {
   manufacturer: 'Diamond',
 
   // Aircraft-specific values (from weight & balance sheet)
-  emptyWeight: 900, // kg
+  emptyWeight: 933.4, // kg
   emptyCG: 95.39, // inches (2180.8 kgm / 900 kg = 2.423m)
 
   // Shared configuration

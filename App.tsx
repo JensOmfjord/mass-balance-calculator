@@ -1,72 +1,69 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen, CalculatorScreen } from './src/screens';
 import { AircraftDetailsScreen } from './src/screens/AircraftDetailsScreen';
 import { PerformanceScreen } from './src/screens/PerformanceScreen';
 import { AircraftConfig } from './src/models/Aircraft';
+import { RootStackParamList } from './src/navigation/types';
+import { colors } from './src/theme/colors';
 
-type Screen = 'home' | 'calculator' | 'details' | 'performance';
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: colors.systemGroupedBackground,
+    primary: colors.primary,
+  },
+};
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [selectedAircraft, setSelectedAircraft] = useState<AircraftConfig | null>(null);
-  const [performanceReturn, setPerformanceReturn] = useState<Screen>('home');
-
-  const handleSelectAircraft = (aircraft: AircraftConfig) => {
-    setSelectedAircraft(aircraft);
-    setCurrentScreen('calculator');
-  };
-
-  const handleViewDetails = (aircraft: AircraftConfig) => {
-    setSelectedAircraft(aircraft);
-    setCurrentScreen('details');
-  };
-
-  const handleOpenPerformanceFromHome = (aircraft: AircraftConfig) => {
-    setSelectedAircraft(aircraft);
-    setPerformanceReturn('home');
-    setCurrentScreen('performance');
-  };
-
-  const handleOpenPerformanceFromCalculator = () => {
-    setPerformanceReturn('calculator');
-    setCurrentScreen('performance');
-  };
-
-  const handleBack = () => {
-    setCurrentScreen('home');
-    setSelectedAircraft(null);
-  };
-
-  const handlePerformanceBack = () => {
-    setCurrentScreen(performanceReturn);
-    if (performanceReturn === 'home') {
-      setSelectedAircraft(null);
-    }
-  };
-
   return (
     <>
-      {currentScreen === 'home' && (
-        <HomeScreen
-          onSelectAircraft={handleSelectAircraft}
-          onViewDetails={handleViewDetails}
-          onOpenPerformance={handleOpenPerformanceFromHome}
-        />
-      )}
-      {currentScreen === 'calculator' && selectedAircraft && (
-        <CalculatorScreen
-          aircraft={selectedAircraft}
-          onBack={handleBack}
-          onOpenPerformance={handleOpenPerformanceFromCalculator}
-        />
-      )}
-      {currentScreen === 'details' && selectedAircraft && (
-        <AircraftDetailsScreen aircraft={selectedAircraft} onBack={handleBack} />
-      )}
-      {currentScreen === 'performance' && selectedAircraft && (
-        <PerformanceScreen aircraft={selectedAircraft} onBack={handlePerformanceBack} />
-      )}
+      <NavigationContainer theme={navTheme}>
+        <Stack.Navigator
+          screenOptions={{
+            headerTintColor: colors.primary,
+            headerBackTitle: 'Back',
+            headerTitleStyle: { fontWeight: '600' },
+            headerShadowVisible: true,
+          }}
+        >
+          <Stack.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{
+              headerLargeTitle: true,
+              headerLargeTitleShadowVisible: false,
+              title: 'Mass & Balance',
+            }}
+          />
+          <Stack.Screen
+            name="Calculator"
+            component={CalculatorScreen}
+            options={({ route }: { route: { params: RootStackParamList['Calculator'] } }) => ({
+              title: route.params.aircraft.registration,
+            })}
+          />
+          <Stack.Screen
+            name="Details"
+            component={AircraftDetailsScreen}
+            options={({ route }: { route: { params: RootStackParamList['Details'] } }) => ({
+              title: route.params.aircraft.registration,
+            })}
+          />
+          <Stack.Screen
+            name="Performance"
+            component={PerformanceScreen}
+            options={({ route }: { route: { params: RootStackParamList['Performance'] } }) => ({
+              title: route.params.aircraft.registration,
+            })}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
       <StatusBar style="auto" />
     </>
   );
