@@ -1,12 +1,10 @@
 import { AircraftConfig, AircraftModelType } from '../models/Aircraft';
 import { SE_LRO } from './tecnam2002jf/aircraft/SE-LRO';
-import { SE_LJO } from './tecnam2002jf/aircraft/SE-LJO';
 import { LN_FTM } from './da40ng/aircraft/LN-FTM';
 import { LN_FTS } from './da40ng/aircraft/LN-FTS';
 
 export const aircraftRegistry: AircraftConfig[] = [
   SE_LRO,
-  SE_LJO,
   LN_FTM,
   LN_FTS,
 ];
