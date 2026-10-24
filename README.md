@@ -14,7 +14,6 @@ This mobile application helps pilots calculate weight and balance for aircraft o
 ## Supported Aircraft
 
 ### Tecnam P2002JF
-- **SE-LJO**: Empty weight 371 kg
 - **SE-LRO**: Empty weight 381 kg
 - **Fuel**: Avgas 100LL (0.72 kg/L)
 - **Capacity**: 100 liters

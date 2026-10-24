@@ -2,6 +2,7 @@ import { AircraftConfig } from '../../../models/Aircraft';
 import { tecnamStations } from '../base/stations';
 import { tecnamEnvelope } from '../base/envelope';
 import { FUEL_DENSITY_UL91_KG_PER_LITER } from '../../../utils/constants';
+import { tecnam2002JfPerformance } from '../base/performance';
 
 export const SE_LRO: AircraftConfig = {
   registration: 'SE-LRO',
@@ -22,4 +23,5 @@ export const SE_LRO: AircraftConfig = {
   fuelType: 'ul91',
   fuelDensity: FUEL_DENSITY_UL91_KG_PER_LITER,
   defaultUnit: 'kg',
+  performance: tecnam2002JfPerformance,
 };
