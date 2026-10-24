@@ -15,7 +15,9 @@
 #
 # NOTE: with a free personal Apple team, the app stops launching ~7 days
 # after signing. Re-run this script to renew. The script prints the exact
-# expiry date on every deploy.
+# expiry date on every deploy, validates the signing certificate up front
+# (removing an expired one so a fresh certificate is issued automatically),
+# and reports the certificate's own expiry alongside the profile's.
 
 set -euo pipefail
 
@@ -82,7 +84,50 @@ check_requirements() {
 
   [ -d "$WORKSPACE" ] || die "iOS workspace not found at $WORKSPACE"
 
+  check_signing_identity
+
   print_success "All requirements met"
+}
+
+# --- Signing identity ---
+# The Apple Development certificate in the keychain is valid for ~1 year (the
+# 7-day limit comes from the provisioning profile, which is refreshed on every
+# build). An expired or missing identity is removed here so the subsequent
+# xcodebuild -allowProvisioningUpdates run creates a fresh certificate.
+check_signing_identity() {
+  command -v security >/dev/null 2>&1 || return 0
+
+  local valid_line expiry
+  valid_line=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 || true)
+
+  if [ -n "$valid_line" ]; then
+    local cert_name
+    cert_name=$(echo "$valid_line" | sed -E 's/.*"(.*)"$/\1/')
+    expiry=$(security find-certificate -c "$cert_name" -p 2>/dev/null | openssl x509 -enddate -noout 2>/dev/null | cut -d= -f2 || true)
+    if [ -n "$expiry" ]; then
+      print_success "Signing identity valid (certificate expires: $expiry)"
+    else
+      print_success "Signing identity valid"
+    fi
+    return
+  fi
+
+  # No valid identity - check for an expired one and remove it so Xcode can
+  # issue a fresh certificate during the build.
+  local all_line
+  all_line=$(security find-identity -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 || true)
+  if [ -n "$all_line" ]; then
+    hash=$(echo "$all_line" | awk '{print $2}')
+    print_warning "Signing identity is expired or invalid - removing it"
+    if security delete-identity -Z "$hash" >/dev/null 2>&1; then
+      print_success "Stale signing identity removed"
+    else
+      print_warning "Could not remove stale identity (keychain access denied?)"
+    fi
+  fi
+
+  print_status "No valid signing identity - a fresh certificate will be created during the build"
+  echo "  (requires your Apple ID in Xcode > Settings > Accounts)" >&2
 }
 
 # --- Device detection ---
@@ -346,7 +391,7 @@ report_expiry() {
 
   local result
   result=$(python3 - "$profile" <<'PYEOF'
-import sys, plistlib, datetime
+import sys, plistlib, datetime, subprocess
 
 data = open(sys.argv[1], 'rb').read()
 start = data.find(b'<?xml')
@@ -357,6 +402,19 @@ exp = pl.get('ExpirationDate')
 now = datetime.datetime.now(exp.tzinfo)
 days = (exp - now).days
 print(f"{exp.strftime('%Y-%m-%d')}|{days}")
+
+# The profile embeds the developer certificate; report its own (1-year) expiry.
+certs = pl.get('DeveloperCertificates') or []
+if certs:
+    cert_data = certs[0]
+    if hasattr(cert_data, 'data'):
+        cert_data = cert_data.data
+    p = subprocess.run(['openssl', 'x509', '-inform', 'der', '-noout', '-enddate'],
+                       input=cert_data, capture_output=True)
+    line = p.stdout.decode().strip()
+    if line.startswith('notAfter='):
+        exp_cert = datetime.datetime.strptime(line.split('=', 1)[1], '%b %d %H:%M:%S %Y %Z')
+        print(f"{exp_cert.strftime('%Y-%m-%d')}")
 PYEOF
 )
   [ -n "$result" ] || return 0
@@ -364,13 +422,21 @@ PYEOF
   local expiry days
   expiry=$(echo "$result" | cut -d'|' -f1)
   days=$(echo "$result" | cut -d'|' -f2)
+  local cert_expiry
+  cert_expiry=$(echo "$result" | tail -n 1)
+  if [[ "$cert_expiry" == *"|"* ]] || [ -z "$cert_expiry" ]; then
+    cert_expiry=""
+  fi
+
+  local cert_note=""
+  [ -n "$cert_expiry" ] && cert_note=", cert valid until $cert_expiry"
 
   if [ "$days" -le 0 ]; then
     print_error "Signing profile EXPIRED - the app will not launch until you re-deploy."
   elif [ "$days" -le 10 ]; then
-    print_warning "App stops launching $expiry (in $days days) - re-run this script before then."
+    print_warning "App stops launching $expiry (in $days days)$cert_note - re-run this script before then."
   else
-    print_success "App runs standalone until $expiry ($days days), then needs a re-deploy"
+    print_success "App runs standalone until $expiry ($days days)$cert_note, then needs a re-deploy"
   fi
 }
 
