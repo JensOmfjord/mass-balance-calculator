@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # deploy-ios.sh
-# Build and deploy M&B (Mass & Balance Calculator) to a paired iPhone.
+# Build and deploy M&B (Mass & Balance Calculator) to a paired iOS device.
 #
 # Produces a standalone Release build with the JS bundle embedded in the app,
-# so the app runs on the iPhone without Metro or any Mac connection.
+# so the app runs on the device without Metro or any Mac connection.
 #
 # Usage:
 #   ./deploy-ios.sh                # detect device, build, install, launch
-#   ./deploy-ios.sh --list         # only list paired iPhones
+#   ./deploy-ios.sh --list         # only list paired iOS devices
 #   ./deploy-ios.sh --device UDID  # deploy to a specific device (udid/name)
 #   ./deploy-ios.sh --clean        # clean build before deploying
 #   ./deploy-ios.sh --no-launch    # install but do not launch
@@ -31,6 +31,7 @@ CLEAN=false
 LAUNCH=true
 LIST_ONLY=false
 DEVICE_QUERY=""
+DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
 
 # --- Output helpers ---
 RED='\033[0;31m'
@@ -46,7 +47,13 @@ print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 die() { print_error "$1"; exit 1; }
 
 usage() {
-  grep '^#' "$0" | sed -n '2,20p' | sed 's/^# \{0,1\}//'
+  # Print the leading comment block only (skip the shebang, stop at the first
+  # non-comment line) so internal section markers do not leak into the help.
+  awk '
+    NR == 1 { next }
+    /^#/ { sub(/^#[[:space:]]?/, ""); print; inblock = 1; next }
+    inblock { exit }
+  ' "$0"
 }
 
 # --- Arguments ---
@@ -79,7 +86,7 @@ check_requirements() {
 }
 
 # --- Device detection ---
-# Prints "idx|name|udid|model|os_version|transport" for every paired physical iPhone.
+# Prints "idx|name|udid|model|os_version|transport" for every paired physical iOS device.
 PY_DEVICE_FILTER='
 import sys, json
 
@@ -102,8 +109,8 @@ for d in devices:
     udid = hp.get("udid") or d.get("identifier") or ""
     if not udid:
         continue
-    name = dp.get("name") or "Unknown iPhone"
-    model = hp.get("marketingName") or hp.get("productType") or "iPhone"
+    name = dp.get("name") or "Unknown device"
+    model = hp.get("marketingName") or hp.get("productType") or "iOS device"
     osver = dp.get("osVersionNumber") or "?"
     transport = cp.get("transportType") or "?"
 
@@ -114,9 +121,49 @@ for i, row in enumerate(rows):
 '
 
 detect_devices() {
-  local json
-  json=$(xcrun devicectl list devices --json-output - 2>/dev/null) || return 1
-  echo "$json" | python3 -c "$PY_DEVICE_FILTER"
+  local json rows
+
+  json=$(xcrun devicectl list devices --json-output - 2>/dev/null || true)
+
+  if [ -n "$json" ]; then
+    if rows=$(echo "$json" | python3 -c "$PY_DEVICE_FILTER" 2>/dev/null); then
+      echo "$rows"
+      return 0
+    fi
+  fi
+
+  print_warning "devicectl unavailable - falling back to 'xctrace list devices'" >&2
+  detect_devices_xctrace
+}
+
+# Fallback device detection via 'xctrace list devices'. Only the "== Devices =="
+# section lists online physical devices: simulators live in their own section,
+# offline devices in another, and the Mac itself has no OS version so the
+# pattern below skips it.
+detect_devices_xctrace() {
+  local list rows row name ver udid model i
+
+  list=$(xcrun xctrace list devices 2>/dev/null) || return 1
+
+  rows=$(echo "$list" | awk '
+    /^== Devices ==$/ { section = 1; next }
+    /^== / { section = 0 }
+    section { print }
+  ' | sed -nE 's/^([^()]+) \(([^()]*)\) \(([^()]+)\)$/\1|\2|\3/p')
+
+  [ -n "$rows" ] || return 1
+
+  i=0
+  while IFS= read -r row; do
+    IFS='|' read -r name ver udid <<< "$row"
+    case "$name" in
+      *iPad*)   model="iPad" ;;
+      *iPhone*) model="iPhone" ;;
+      *)        model="iOS device" ;;
+    esac
+    echo "$i|$name|$udid|$model|$ver|unknown"
+    i=$((i + 1))
+  done <<< "$rows"
 }
 
 select_device() {
@@ -134,11 +181,11 @@ select_device() {
   count=$(echo "$rows" | grep -c . || true)
 
   if [ "$count" -eq 0 ]; then
-    print_error "No paired iPhone found."
+    print_error "No paired iOS device found."
     echo "  Make sure:" >&2
-    echo "  - The iPhone is connected via USB (or on the same Wi-Fi network if wirelessly paired)" >&2
-    echo "  - You have trusted this computer on the iPhone" >&2
-    echo "  - The iPhone is unlocked" >&2
+    echo "  - The device is connected via USB (or on the same Wi-Fi network if wirelessly paired)" >&2
+    echo "  - You have trusted this computer on the device" >&2
+    echo "  - The device is unlocked" >&2
     echo "  - Developer mode is enabled (Settings > Privacy & Security > Developer Mode)" >&2
     echo "  - The device is paired in Xcode (Window > Devices and Simulators)" >&2
     exit 1
@@ -150,7 +197,7 @@ select_device() {
   fi
 
   echo ""
-  echo "Paired iPhones:"
+  echo "Paired iOS devices:"
   while IFS= read -r row; do
     parse_row "$row"
     echo "  [$idx] $name ($model, iOS $os_version, $transport)"
@@ -165,7 +212,7 @@ select_device() {
 }
 
 parse_row() {
-  IFS='|' read -r _idx name udid model os_version transport <<< "$1"
+  IFS='|' read -r idx name udid model os_version transport <<< "$1"
   export DEVICE_NAME="$name" DEVICE_UDID="$udid" DEVICE_MODEL="$model" DEVICE_OS="$os_version" DEVICE_TRANSPORT="$transport"
 }
 
@@ -196,6 +243,9 @@ build_app() {
               -allowProvisioningUpdates
               -allowProvisioningDeviceRegistration
               -quiet)
+  if [ -n "$DEVELOPMENT_TEAM" ]; then
+    args+=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM")
+  fi
   if [ "$CLEAN" = true ]; then
     args+=(clean)
   fi
@@ -280,7 +330,7 @@ launch_app() {
     print_success "App launched on $DEVICE_NAME"
   elif grep -q "not been explicitly trusted\|invalid code signature" "$launch_err"; then
     print_warning "Install succeeded, but iOS blocked the first launch."
-    echo "  One-time step on the iPhone:" >&2
+    echo "  One-time step on the device:" >&2
     echo "  Settings > General > VPN & Device Management > Apple Development: ... > Trust" >&2
     echo "  Then launch the app manually (repeat after every 7-day renewal)." >&2
   else
@@ -334,15 +384,21 @@ main() {
 
   check_requirements
 
-  print_status "Detecting paired iPhones..."
+  print_status "Detecting paired iOS devices..."
   local rows
-  rows=$(detect_devices)
+  if ! rows=$(detect_devices); then
+    print_error "Could not list devices."
+    echo "  - Is Xcode installed? (xcode-select --install)" >&2
+    echo "  - Is the active developer directory correct? (xcode-select -p)" >&2
+    echo "  - Are your devices trusted and paired in Xcode?" >&2
+    exit 1
+  fi
 
   if [ "$LIST_ONLY" = true ]; then
     if [ -z "$rows" ]; then
-      print_warning "No paired iPhones found"
+      print_warning "No paired iOS devices found"
     else
-      echo "Paired iPhones:"
+      echo "Paired iOS devices:"
       while IFS= read -r row; do
         parse_row "$row"
         echo "  $name | udid: $udid | $model | iOS $os_version | $transport"
