@@ -14,15 +14,20 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.massbalance.app"
+      "bundleIdentifier": "com.massbalance.app",
+      "appleTeamId": "R5B588ZJ88"
     },
+    "plugins": [
+      "./plugins/with-scene-lifecycle"
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.massbalance.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
